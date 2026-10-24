@@ -14,3 +14,7 @@
 - **其他联赛**：日职、韩职、中职、中国棒球联赛目前都是示例内容。
 
 部署到 GitHub Pages 或任意静态网站后，就能看到实时数据。
+
+### 部署到 GitHub Pages
+
+`.github/workflows/pages.yml` 会在每次推送到 `main` 时运行 `scripts/build-pages.sh`。脚本把页面包装成完整网页，然后发布到 GitHub Pages。第一次部署前，需要在仓库的 Settings → Pages 里把 Source 设为 **GitHub Actions**。发布后的地址是 `https://<用户名>.github.io/elon/baseball/`。
