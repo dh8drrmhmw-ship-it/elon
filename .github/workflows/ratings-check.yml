@@ -4,7 +4,6 @@ on:
   pull_request:
     paths:
       - scripts/fetch-ratings.mjs
-      - scripts/probe-savant.mjs
       - .github/workflows/ratings-check.yml
   workflow_dispatch:
 
@@ -19,9 +18,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: 探测 Baseball Savant
-        run: node scripts/probe-savant.mjs
-      - name: 抓取 MLB The Show 能力值
+      - name: 抓取 Baseball Savant 百分位
         run: node scripts/fetch-ratings.mjs ratings.json
       - name: 查看结果
         run: ls -l ratings.json && head -c 600 ratings.json

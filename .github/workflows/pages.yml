@@ -30,7 +30,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: 抓取 MLB The Show 能力值
+      - name: 抓取 Baseball Savant 百分位
         continue-on-error: true
         run: node scripts/fetch-ratings.mjs _site/baseball/ratings.json
       - uses: actions/configure-pages@v5

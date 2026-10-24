@@ -1,76 +1,51 @@
-// 抓取 MLB The Show 的 Live Series 球员卡能力值，写成 ratings.json 供页面读取。
+// 抓取 Baseball Savant（MLB 官方 Statcast）的球员百分位排名，写成 ratings.json 供页面读取。
 // 用法：node scripts/fetch-ratings.mjs <输出文件>
 // 抓取失败时不写文件、以非零状态退出，页面会显示“暂无能力值”。
 import { writeFile } from 'node:fs/promises';
 
 const out = process.argv[2] || 'ratings.json';
-const YEARS = (process.env.SHOW_YEARS || '26,25').split(',');
+const now = new Date();
+const season = now.getUTCMonth() < 2 ? now.getUTCFullYear() - 1 : now.getUTCFullYear();
 
-// 页面用到的能力项（The Show 接口字段名）
-const HITTER = ['contact_left', 'contact_right', 'power_left', 'power_right', 'plate_vision', 'plate_discipline',
-  'batting_clutch', 'bunting_ability', 'drag_bunting_ability', 'hitting_durability', 'fielding_durability',
-  'fielding_ability', 'arm_strength', 'arm_accuracy', 'reaction_time', 'blocking', 'speed',
-  'baserunning_ability', 'baserunning_aggression'];
-const PITCHER = ['stamina', 'pitching_clutch', 'hits_per_bf', 'k_per_bf', 'bb_per_bf', 'hr_per_bf',
-  'pitch_velocity', 'pitch_control', 'pitch_movement'];
+// 去掉不是百分位或方向不明确的列
+const SKIP = new Set(['player_name', 'player_id', 'year', 'brl', 'swing_length']);
 
-async function getJSON(url, tries = 3) {
-  for (let i = 1; ; i++) {
-    try {
-      const r = await fetch(url, { headers: {
-        'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15',
-        'accept': 'application/json,text/plain,*/*',
-        'accept-language': 'en-US,en;q=0.9',
-      } });
-      if (!r.ok) {
-        const body = (await r.text()).replace(/\s+/g, ' ').slice(0, 300);
-        throw new Error(`HTTP ${r.status} ${r.headers.get('server') || ''} ${body}`);
-      }
-      return await r.json();
-    } catch (e) {
-      if (i >= tries) throw new Error(`${url}: ${e.message}`);
-      await new Promise(res => setTimeout(res, 1000 * i));
-    }
+function parseCSV(text) {
+  const rows = text.replace(/^﻿/, '').trim().split(/\r?\n/)
+    .map(line => [...line.matchAll(/("([^"]*)"|[^,]*)(,|$)/g)].map(m => m[2] ?? m[1]).slice(0, -1));
+  const [head, ...body] = rows;
+  return body.map(r => Object.fromEntries(head.map((h, i) => [h, r[i]])));
+}
+
+async function fetchType(type, year) {
+  const url = `https://baseballsavant.mlb.com/leaderboard/percentile-rankings?type=${type}&team=&year=${year}&csv=true`;
+  const r = await fetch(url, { headers: { 'user-agent': 'benlei-baseball/1.0 (+https://github.com/dh8drrmhmw-ship-it/elon)' } });
+  if (!r.ok) throw new Error(`${url}: HTTP ${r.status}`);
+  const out = {};
+  for (const row of parseCSV(await r.text())) {
+    const p = {};
+    for (const [k, v] of Object.entries(row)) if (!SKIP.has(k) && v !== '' && !isNaN(+v)) p[k] = +v;
+    if (Object.keys(p).length) out[row.player_id] = p;
   }
+  return out;
 }
 
-async function fetchYear(yy) {
-  const base = `https://mlb${yy}.theshow.com/apis/items.json?type=mlb_card`;
-  const first = await getJSON(`${base}&page=1`);
-  const pages = first.total_pages || 1;
-  const items = [...(first.items || [])];
-  for (let p = 2; p <= pages; p += 5) {
-    const batch = await Promise.all(
-      Array.from({ length: Math.min(5, pages - p + 1) }, (_, i) => getJSON(`${base}&page=${p + i}`)));
-    batch.forEach(b => items.push(...(b.items || [])));
+let year = season, batters, pitchers;
+try {
+  [batters, pitchers] = await Promise.all([fetchType('batter', year), fetchType('pitcher', year)]);
+  if (Object.keys(batters).length < 50) {   // 赛季刚开始数据太少时，用上一季
+    year = season - 1;
+    [batters, pitchers] = await Promise.all([fetchType('batter', year), fetchType('pitcher', year)]);
   }
-  return items;
+} catch (e) {
+  console.error(e.message);
+  process.exit(1);
 }
 
-let items = null, year = null;
-for (const yy of YEARS) {
-  try { items = await fetchYear(yy); year = yy; break; }
-  catch (e) { console.error(`MLB The Show ${yy}: ${e.message}`); }
-}
-if (!items) { console.error('没有拿到任何球员卡数据'); process.exit(1); }
+console.log(`Baseball Savant ${year}：打者 ${Object.keys(batters).length} 人，投手 ${Object.keys(pitchers).length} 人`);
+console.log('样例（Shohei Ohtani 660271）:', JSON.stringify({ b: batters['660271'], p: pitchers['660271'] }));
 
-const live = items.filter(c => c.series === 'Live');
-console.log(`MLB The Show ${year}: 共 ${items.length} 张卡，Live Series ${live.length} 张`);
-if (items[0]) console.log('字段示例:', Object.keys(items[0]).join(', '));
-
-const pick = (c, keys) => Object.fromEntries(keys.filter(k => typeof c[k] === 'number').map(k => [k, c[k]]));
-const players = live.map(c => ({
-  n: c.name,
-  t: c.team_short_name || c.team,
-  ovr: c.ovr,
-  pos: c.display_position,
-  h: c.is_hitter !== false,
-  a: pick(c, c.is_hitter === false ? PITCHER : HITTER),
+await writeFile(out, JSON.stringify({
+  source: 'Baseball Savant', year, updated: now.toISOString().slice(0, 10), batters, pitchers,
 }));
-if (!players.length) { console.error('Live Series 球员卡为 0，可能接口字段有变化'); process.exit(1); }
-
-const judge = players.find(p => p.n === 'Aaron Judge');
-if (judge) console.log('样例:', JSON.stringify(judge));
-
-await writeFile(out, JSON.stringify({ source: `MLB The Show ${year}`, updated: new Date().toISOString().slice(0, 10), players }));
-console.log(`已写入 ${out}，${players.length} 名球员`);
+console.log(`已写入 ${out}`);
