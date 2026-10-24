@@ -306,6 +306,32 @@ td.tm button,td.tm span.t{display:inline-flex;align-items:center;gap:8px}
 .prow small{font-size:12px;color:var(--faint)}
 .prow em{font-style:normal;font-size:12px;color:var(--muted);white-space:nowrap}
 .grp{padding:12px 14px 6px;font-size:12px;color:var(--muted);letter-spacing:.06em;display:flex;justify-content:space-between}
+/* player page */
+.phero{position:relative;overflow:hidden;color:var(--on-team);background:linear-gradient(160deg,var(--tc) 0%,var(--tc) 45%,var(--mast-2) 150%);
+  padding:6px max(16px,env(safe-area-inset-right,0px)) 18px max(16px,env(safe-area-inset-left,0px));display:flex;align-items:center;gap:14px}
+.phero .seam{position:absolute;right:-20%;top:-20%;width:65%;aspect-ratio:1;opacity:.1}
+.pshot{position:relative;flex:none;width:78px;height:78px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:rgba(255,255,255,.14);
+  box-shadow:inset 0 0 0 2px rgba(255,255,255,.3);font:900 28px var(--f-display)}
+.pshot img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:var(--soft)}
+.phero div.pinfo{position:relative;display:grid;gap:3px;min-width:0}
+.phero h2{margin:0;font:900 25px/1.2 var(--f-display);letter-spacing:.03em}
+.phero small{font-size:12px;opacity:.8}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line);border-top:1px solid var(--line)}
+.tiles div{background:var(--card);display:grid;justify-items:center;padding:10px 2px;font-size:11px;color:var(--muted)}
+.tiles b{font:600 21px var(--f-num);color:var(--fg);font-variant-numeric:tabular-nums}
+.name-form{display:flex;gap:8px;padding:6px 14px 14px}
+.name-form input{flex:1;min-width:0;height:36px;border-radius:8px;border:1px solid var(--line);background:var(--soft);color:var(--fg);padding:0 10px;font:inherit;font-size:14px}
+.name-form button{flex:none;padding:0 14px;border-radius:8px;background:var(--brand);color:var(--card);font-size:14px;font-weight:500}
+.name-form button.ghost{background:var(--soft);color:var(--muted)}
+.prow{width:100%}
+.prow .zh{font-size:14px}
+/* AI */
+.ai-btn{flex:none;padding:5px 12px;border-radius:14px;background:var(--brand-soft);color:var(--brand-ink);font-size:13px;font-weight:500}
+.ai-btn[disabled]{opacity:.55;cursor:default}
+.ai-out{padding:4px 14px 14px;white-space:pre-wrap;font-size:15px;line-height:1.85;margin:0}
+.ai-out .ai-title{display:block;font:700 18px/1.4 var(--f-display);margin-bottom:6px}
+.ai-meta{padding:0 14px 12px;font-size:12px;color:var(--faint)}
+.play .orig{display:block;font-size:12px;color:var(--faint);font-weight:400}
 .toast{position:fixed;left:50%;bottom:calc(76px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:60;background:var(--fg);color:var(--card);
   padding:8px 16px;border-radius:18px;font-size:13px;max-width:calc(100% - 32px);text-align:center}
 
@@ -422,6 +448,16 @@ const OTHER={
   BJ:{n:'北京队',s:'北京',c:'#A31515',league:'中国'}, TJ:{n:'天津队',s:'天津',c:'#1565C0',league:'中国'}, SH:{n:'上海队',s:'上海',c:'#00796B',league:'中国'}, JS:{n:'江苏队',s:'江苏',c:'#5E35B1',league:'中国'}
 };
 const team=c=>MLB[c]||OTHER[c];
+
+/* ---------- player names: 中文译名库 (keyed by normalized English name) ---------- */
+const NAMES={};
+`shohei ohtani=大谷翔平;mookie betts=贝茨;freddie freeman=弗里曼;will smith=威尔·史密斯;teoscar hernandez=特奥斯卡·埃尔南德斯;max muncy=芒西;tommy edman=埃德曼;andy pages=帕赫斯;yoshinobu yamamoto=山本由伸;roki sasaki=佐佐木朗希;tyler glasnow=格拉斯诺;blake snell=斯奈尔;clayton kershaw=柯肖;tanner scott=坦纳·斯科特;enrique hernandez=基克·埃尔南德斯;alex vesia=维西亚;michael conforto=康福托;hyeseong kim=金慧成;blake treinen=特雷嫩;kirby yates=耶茨;emmet sheehan=希恩;dustin may=达斯汀·梅;dave roberts=罗伯茨; aaron judge=贾奇;giancarlo stanton=斯坦顿;gerrit cole=科尔;max fried=弗里德;carlos rodon=罗东;cody bellinger=贝林杰;jazz chisholm jr=小奇泽姆;anthony volpe=沃尔普;austin wells=奥斯汀·威尔斯;ben rice=本·赖斯;trent grisham=格里沙姆;luis gil=路易斯·吉尔;devin williams=德文·威廉姆斯;david bednar=贝德纳;paul goldschmidt=戈德施密特;ryan mcmahon=麦克马洪;jasson dominguez=多明格斯;clarke schmidt=克拉克·施密特;cam schlittler=施利特勒;luke weaver=韦弗;aaron boone=布恩; vladimir guerrero jr=小格雷罗;bo bichette=比切特;george springer=斯普林格;kevin gausman=高斯曼;jose berrios=贝里奥斯;chris bassitt=巴西特;shane bieber=比伯;max scherzer=薛瑟;alejandro kirk=柯克;daulton varsho=瓦尔肖;ernie clement=克莱门特;addison barger=巴杰尔;andres gimenez=希门尼斯;anthony santander=桑坦德;jeff hoffman=霍夫曼;trey yesavage=耶萨维奇;nathan lukes=卢克斯;isiah kiner-falefa=基纳-法勒法;davis schneider=戴维斯·施耐德;dylan cease=锡斯;kazuma okamoto=冈本和真;john schneider=施耐德; cal raleigh=罗利;julio rodriguez=胡里奥·罗德里格斯;eugenio suarez=欧亨尼奥·苏亚雷斯;logan gilbert=吉尔伯特;george kirby=乔治·柯比;luis castillo=卡斯蒂略;bryce miller=布莱斯·米勒;bryan woo=布赖恩·吴;andres munoz=穆尼奥斯;randy arozarena=阿罗萨雷纳;josh naylor=乔什·内勒;jp crawford=克劳福德;dan wilson=丹·威尔逊; kyle schwarber=施瓦伯;bryce harper=哈珀;trea turner=特纳;zack wheeler=惠勒;aaron nola=诺拉;cristopher sanchez=克里斯托弗·桑切斯;jt realmuto=雷阿尔穆托;alec bohm=博姆;nick castellanos=卡斯特利亚诺斯;brandon marsh=马什;jhoan duran=约安·杜兰;ranger suarez=兰杰·苏亚雷斯;jesus luzardo=卢萨尔多;rob thomson=汤姆森; christian yelich=耶利奇;jackson chourio=乔里奥;william contreras=威廉·孔特雷拉斯;brice turang=图朗;freddy peralta=佩拉尔塔;jacob misiorowski=米西奥罗斯基;sal frelick=弗雷利克;trevor megill=梅吉尔;brandon woodruff=伍德拉夫;quinn priester=普里斯特;abner uribe=乌里韦;pat murphy=帕特·墨菲; kyle tucker=塔克;pete crow-armstrong=克罗-阿姆斯特朗;seiya suzuki=铃木诚也;shota imanaga=今永升太;dansby swanson=斯旺森;ian happ=哈普;nico hoerner=霍纳;michael busch=布施;matthew boyd=博伊德;cade horton=霍顿;justin steele=贾斯汀·斯蒂尔;craig counsell=康塞尔; manny machado=马查多;fernando tatis jr=小塔蒂斯;jackson merrill=梅里尔;xander bogaerts=博加茨;luis arraez=阿拉埃斯;yu darvish=达比修有;michael king=迈克尔·金;robert suarez=罗伯特·苏亚雷斯;mason miller=梅森·米勒;nick pivetta=皮维塔;jake cronenworth=克罗南沃斯;ha-seong kim=金河成; rafael devers=德弗斯;alex bregman=布雷格曼;jarren duran=贾伦·杜兰;garrett crochet=克罗谢;roman anthony=罗曼·安东尼;trevor story=斯托里;wilyer abreu=阿布雷乌;ceddanne rafaela=拉斐拉;triston casas=卡萨斯;brayan bello=贝略;aroldis chapman=阿罗迪斯·查普曼;masataka yoshida=吉田正尚;lucas giolito=吉奥利托;alex cora=科拉; juan soto=索托;francisco lindor=林多;pete alonso=阿隆索;brandon nimmo=尼莫;mark vientos=维恩托斯;kodai senga=千贺滉大;edwin diaz=埃德温·迪亚斯;francisco alvarez=弗朗西斯科·阿尔瓦雷斯;jeff mcneil=麦克尼尔;sean manaea=马内亚;david peterson=彼得森;nolan mclean=麦克莱恩;carlos mendoza=门多萨; jose altuve=奥图维;yordan alvarez=约丹·阿尔瓦雷斯;carlos correa=科雷亚;jeremy pena=佩尼亚;hunter brown=亨特·布朗;framber valdez=瓦尔迪兹;josh hader=黑德尔;christian walker=克里斯蒂安·沃克;isaac paredes=帕雷德斯;yainer diaz=亚伊内尔·迪亚斯;jake meyers=梅耶斯;tatsuya imai=今井达也;joe espada=埃斯帕达; ronald acuna jr=小阿库尼亚;matt olson=奥尔森;austin riley=莱利;ozzie albies=阿尔比斯;michael harris ii=小迈克尔·哈里斯;chris sale=塞尔;spencer strider=斯特赖德;raisel iglesias=伊格莱西亚斯;sean murphy=肖恩·墨菲;drake baldwin=鲍德温;marcell ozuna=奥苏纳;spencer schwellenbach=施韦伦巴赫;brian snitker=斯尼特克;walt weiss=韦斯; tarik skubal=斯库巴尔;riley greene=莱利·格林;spencer torkelson=托克尔森;kerry carpenter=卡彭特;gleyber torres=托雷斯;colt keith=基斯;jack flaherty=弗拉赫蒂;casey mize=迈兹;javier baez=贝兹;zach mckinstry=麦金斯特里;dillon dingler=丁格勒;aj hinch=辛奇; jose ramirez=何塞·拉米雷斯;steven kwan=斯蒂文·关;emmanuel clase=克拉塞;tanner bibee=比比;gavin williams=加文·威廉姆斯;kyle manzardo=曼萨尔多;bo naylor=博·内勒;cade smith=凯德·史密斯;stephen vogt=沃格特; bobby witt jr=小维特;salvador perez=萨尔瓦多·佩雷斯;vinnie pasquantino=帕斯坎蒂诺;cole ragans=拉甘斯;seth lugo=卢戈;maikel garcia=迈克尔·加西亚;kris bubic=布比奇;jonathan india=因迪亚;matt quatraro=夸特拉罗; mike trout=楚奥特;zach neto=内托;jo adell=阿德尔;taylor ward=泰勒·沃德;yusei kikuchi=菊池雄星;logan o'hoppe=奥霍普;nolan schanuel=沙努埃尔;jorge soler=索莱尔;kenley jansen=詹森;ron washington=华盛顿;kurt suzuki=库尔特·铃木; sandy alcantara=阿尔坎塔拉;kyle stowers=斯托尔斯;xavier edwards=爱德华兹;otto lopez=奥托·洛佩斯;eury perez=尤里·佩雷斯;agustin ramirez=阿古斯丁·拉米雷斯;clayton mccullough=麦卡洛; byron buxton=巴克斯顿;royce lewis=罗伊斯·刘易斯;pablo lopez=巴勃罗·洛佩斯;joe ryan=乔·瑞安;matt wallner=沃尔纳;ryan jeffers=杰弗斯;bailey ober=奥伯;rocco baldelli=巴尔代利;derek shelton=谢尔顿; brent rooker=鲁克;lawrence butler=劳伦斯·巴特勒;nick kurtz=库尔茨;shea langeliers=兰格利尔斯;jacob wilson=雅各布·威尔逊;tyler soderstrom=索德斯特罗姆;luis severino=塞韦里诺;mark kotsay=科特赛; paul skenes=斯基恩斯;oneil cruz=奥尼尔·克鲁兹;bryan reynolds=雷诺兹;mitch keller=米奇·凯勒;ke'bryan hayes=海斯;andrew mccutchen=麦卡琴;bubba chandler=钱德勒;jared jones=贾里德·琼斯;don kelly=唐·凯利; matt chapman=马特·查普曼;willy adames=阿达梅斯;jung hoo lee=李政厚;logan webb=韦布;robbie ray=罗比·雷;heliot ramos=赫利奥特·拉莫斯;patrick bailey=帕特里克·贝利;justin verlander=韦兰德;bob melvin=梅尔文;tony vitello=维泰洛; nolan arenado=阿雷纳多;masyn winn=梅森·温;sonny gray=桑尼·格雷;ivan herrera=伊万·埃雷拉;lars nootbaar=努特巴尔;willson contreras=威尔森·孔特雷拉斯;alec burleson=伯尔森;brendan donovan=多诺万;jordan walker=乔丹·沃克;ryan helsley=赫尔斯利;oliver marmol=马莫尔; junior caminero=卡米内罗;yandy diaz=扬迪·迪亚斯;brandon lowe=布兰登·洛;shane mcclanahan=麦克拉纳汉;drew rasmussen=拉斯穆森;shane baz=巴兹;ryan pepiot=佩皮奥特;jonathan aranda=阿兰达;chandler simpson=辛普森;pete fairbanks=费尔班克斯;kevin cash=卡什; corey seager=西格;marcus semien=塞米恩;jacob degrom=德格罗姆;nathan eovaldi=伊奥瓦尔迪;adolis garcia=阿多利斯·加西亚;wyatt langford=兰福德;josh jung=乔什·容;evan carter=埃文·卡特;joc pederson=佩德森;jack leiter=莱特;bruce bochy=博奇;skip schumaker=舒马克; james wood=詹姆斯·伍德;cj abrams=艾布拉姆斯;mackenzie gore=戈尔;dylan crews=克鲁斯;luis garcia jr=小路易斯·加西亚;keibert ruiz=鲁伊斯;jake irvin=欧文;dave martinez=马丁内斯;blake butera=布特拉; corbin carroll=卡罗尔;ketel marte=凯特尔·马特;geraldo perdomo=佩尔多莫;gabriel moreno=莫雷诺;zac gallen=加伦;merrill kelly=梅里尔·凯利;corbin burnes=伯恩斯;brandon pfaadt=普法特;lourdes gurriel jr=小古里尔;torey lovullo=洛武洛; hunter goodman=古德曼;ezequiel tovar=托瓦尔;brenton doyle=多伊尔;kyle freeland=弗里兰;jordan beck=乔丹·贝克;warren schaeffer=谢弗; elly de la cruz=德拉克鲁兹;hunter greene=亨特·格林;andrew abbott=阿博特;nick lodolo=洛多洛;tj friedl=弗里德尔;spencer steer=斯宾塞·斯蒂尔;matt mclain=麦克莱恩;chase burns=蔡斯·伯恩斯;noelvi marte=诺尔维·马特;terry francona=弗朗科纳; gunnar henderson=亨德森;adley rutschman=拉奇曼;jackson holliday=霍利迪;colton cowser=考瑟;jordan westburg=韦斯特伯格;ryan mountcastle=芒卡斯尔;cedric mullins=穆林斯;zach eflin=埃夫林;felix bautista=包蒂斯塔;samuel basallo=巴萨略;craig albernaz=阿尔伯纳兹; luis robert jr=小路易斯·罗伯特;andrew vaughn=沃恩;miguel vargas=巴尔加斯;colson montgomery=蒙哥马利;kyle teel=蒂尔;munetaka murakami=村上宗隆;will venable=维纳布尔`.split(';').forEach(x=>{const [k,v]=x.split('=');if(k&&v)NAMES[k.trim()]=v.trim();});
+const normName=n=>String(n||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\./g,'').replace(/\s+/g,' ').trim();
+let customNames=store.get('names',{});
+const zhName=n=>customNames[normName(n)]||NAMES[normName(n)]||'';
+const dispName=n=>zhName(n)||n;
+const PH={}; // player hints seen on screen: id -> {n, t}
+const hint=(id,n,t)=>{if(id&&!PH[id])PH[id]={n,t};};
 const LEAGUES=['MLB','NPB','KBO','中职','中国'];
 const LG_NAME={MLB:'美职棒',NPB:'日职',KBO:'韩职',中职:'中职',中国:'中国棒球联赛'};
 const logo=(c,cls='')=>{const t=team(c);return `<span class="logo ${MLB[c]?'':'cn '}${cls}" style="--tc:${t.c}">${esc(t.s)}</span>`;};
@@ -436,7 +472,7 @@ const SEASON=TODAY.getMonth()<2?TODAY.getFullYear()-1:TODAY.getFullYear();
 
 /* ---------- live MLB data (statsapi.mlb.com) ---------- */
 const API='https://statsapi.mlb.com/api';
-const Live={state:'loading',games:null,standings:null,leaders:null,roster:{},coaches:{},feed:{},records:{}};
+const Live={state:'loading',games:null,standings:null,leaders:null,roster:{},coaches:{},feed:{},records:{},player:{}};
 async function api(path,ms=8000){
   const ctl=new AbortController(),t=setTimeout(()=>ctl.abort(),ms);
   try{const r=await fetch(API+path,{signal:ctl.signal});if(!r.ok)throw new Error(r.status);return await r.json();}
@@ -457,7 +493,7 @@ function mapGame(x){
     status:st.abstractGameState==='Live'?'live':st.abstractGameState==='Final'?'final':'pre',detail:st.detailedState};
   if(g.status==='live'){const o=ls.offense||{};
     g.live={inn:ls.currentInning||1,half:ls.isTopInning===false?'bot':'top',outs:ls.outs||0,b:ls.balls||0,s:ls.strikes||0,
-      bases:[!!o.first,!!o.second,!!o.third],batterName:o.batter&&o.batter.fullName};}
+      bases:[!!o.first,!!o.second,!!o.third],batterName:o.batter&&o.batter.fullName,batterId:o.batter&&o.batter.id};}
   return g;
 }
 async function loadSchedule(){
@@ -476,14 +512,14 @@ async function loadLeaders(){
   const [h,p]=await Promise.all([q('homeRuns,battingAverage,runsBattedIn','hitting'),q('earnedRunAverage,strikeouts','pitching')]);
   const name={homeRuns:['全垒打','HR'],battingAverage:['打击率','AVG'],runsBattedIn:['打点','RBI'],earnedRunAverage:['防御率','ERA'],strikeouts:['三振','SO']};
   Live.leaders=[...(h.leagueLeaders||[]),...(p.leagueLeaders||[])].filter(c=>name[c.leaderCategory]).map(c=>[name[c.leaderCategory][0],name[c.leaderCategory][1],
-    (c.leaders||[]).slice(0,5).map(l=>[l.person.fullName,ID2AB[l.team&&l.team.id],l.value])]);
+    (c.leaders||[]).slice(0,5).map(l=>[l.person.fullName,ID2AB[l.team&&l.team.id],l.value,l.person.id])]);
 }
 async function loadTeamExtra(ab){
   const id=MLB[ab].id;
   const [r,c]=await Promise.all([
     api(`/v1/teams/${id}/roster?rosterType=active&season=${SEASON}`).catch(()=>null),
     api(`/v1/teams/${id}/coaches?season=${SEASON}`).catch(()=>null)]);
-  if(r)Live.roster[ab]=(r.roster||[]).map(p=>({n:p.person.fullName,no:p.jerseyNumber,pos:p.position.abbreviation,type:p.position.type}));
+  if(r)Live.roster[ab]=(r.roster||[]).map(p=>({id:p.person.id,n:p.person.fullName,no:p.jerseyNumber,pos:p.position.abbreviation,type:p.position.type}));
   if(c)Live.coaches[ab]=(c.roster||[]).map(p=>({n:p.person.fullName,no:p.jerseyNumber,job:p.job}));
   if(!r&&!c)throw new Error('team');
 }
@@ -697,9 +733,9 @@ function standingsTable(title,rows,live){
     const name=MLB[t]?`<button data-teamp="${t}"><i class="rk${i<3?' top':''}">${i+1}</i>${logo(t)}${esc(team(t).n)}</button>`:`<span class="t"><i class="rk${i<3?' top':''}">${i+1}</i>${logo(t)}${esc(team(t).n)}</span>`;
     return `<tr><td class="tm">${name}</td><td>${w}</td><td>${l}</td><td>${pct}</td><td>${typeof g==='number'?g.toFixed(1):g}</td></tr>`;}).join('')}</tbody></table></div>`;
 }
-const SAMPLE_LEADERS=[['全垒打','HR',[['Cal Raleigh','SEA','60'],['Kyle Schwarber','PHI','56'],['Shohei Ohtani','LAD','55'],['Aaron Judge','NYY','53']]],
-  ['打击率','AVG',[['Aaron Judge','NYY','.331'],['Trea Turner','PHI','.304'],['Bobby Witt Jr.','KC','.295'],['Freddie Freeman','LAD','.295']]],
-  ['防御率','ERA',[['Paul Skenes','PIT','1.97'],['Tarik Skubal','DET','2.21'],['Yoshinobu Yamamoto','LAD','2.49']]]];
+const SAMPLE_LEADERS=[['全垒打','HR',[['Cal Raleigh','SEA','60',663728],['Kyle Schwarber','PHI','56',656941],['Shohei Ohtani','LAD','55',660271],['Aaron Judge','NYY','53',592450]]],
+  ['打击率','AVG',[['Aaron Judge','NYY','.331',592450],['Trea Turner','PHI','.304',607208],['Bobby Witt Jr.','KC','.295',677951],['Freddie Freeman','LAD','.295',518692]]],
+  ['防御率','ERA',[['Paul Skenes','PIT','1.97',694973],['Tarik Skubal','DET','2.21',669373],['Yoshinobu Yamamoto','LAD','2.49',808967]]]];
 function viewStats(){
   const mast=`<div class="mast-top"><h1>数据</h1>${srcChip()}</div>
    <div class="chips" style="padding-bottom:12px">${LEAGUES.map(l=>`<button class="chip" aria-pressed="${l===S.slg}" data-slg="${l}">${esc(LG_NAME[l])}</button>`).join('')}</div>`;
@@ -716,8 +752,8 @@ function viewStats(){
   }else if(S.sview==='lead'){
     const L=live?Live.leaders:SAMPLE_LEADERS;
     if(!L)main+='<div class="empty">正在读取球员榜…</div>';
-    else L.forEach(([name,abbr,rows])=>{main+=`<div class="leader"><h3>${esc(name)}<small>${abbr}</small></h3>${rows.map(([p,t,v],i)=>`<button class="lrow" ${t?`data-teamp="${t}"`:''}><i class="rk${i===0?' top':''}">${i+1}</i>${t?logo(t):''}<span>${esc(p)} <small style="color:var(--faint)">${t?esc(team(t).n):''}</small></span><b>${esc(v)}</b></button>`).join('')}</div>`;});
-    main+=`<div class="note">球员名保留英文原名。${live?`数据来源：MLB 官方 · ${SEASON} 赛季`:'示例数据'}</div>`;
+    else L.forEach(([name,abbr,rows])=>{main+=`<div class="leader"><h3>${esc(name)}<small>${abbr}</small></h3>${rows.map(([p,t,v,id],i)=>{hint(id,p,t);return `<button class="lrow" ${id?`data-player="${id}"`:''}><i class="rk${i===0?' top':''}">${i+1}</i>${t?logo(t):''}<span>${esc(dispName(p))} <small style="color:var(--faint)">${t?esc(team(t).n):''}</small></span><b>${esc(v)}</b></button>`;}).join('')}</div>`;});
+    main+=`<div class="note">点击球员查看个人主页；暂无中文译名的球员显示英文原名。${live?`数据来源：MLB 官方 · ${SEASON} 赛季`:'示例数据'}</div>`;
   }else main+=teamGrid();
   return {mast,main:main+'</section></div>'};
 }
@@ -740,8 +776,13 @@ function viewMe(){
    <section class="panel"><div class="counts"><div><b>${follows.length}</b>关注球队</div><div><b>${liked.size}</b>点赞</div><div><b>${Object.values(myComments).flat().length}</b>评论</div><div><b>12</b>收藏</div></div></section>
    <section class="panel"><div class="sec-h">关注的美职棒球队<small>点击切换关注</small></div><div class="follow-grid">${mlbFollow.map(t=>`<button class="fbtn" data-follow="${t}" aria-pressed="${follows.includes(t)}">${logo(t)}<span>${esc(team(t).n)}</span></button>`).join('')}</div></section>
    <section class="panel"><div class="menu-row"><span>外观</span><div class="seg inline">${[['system','跟随系统'],['light','浅色'],['dark','深色']].map(([k,v])=>`<button data-theme-set="${k}" aria-pressed="${theme===k}">${v}</button>`).join('')}</div></div>
+     <div class="menu-row"><span>AI 中文战报</span><small>${aiMode()==='sample'?'使用你的 Claude 账号':aiMode()==='key'?'使用你的 API Key':AI.sample===undefined?'检测中…':'未启用'}</small></div>
+     ${aiMode()!=='sample'?(apiKey?`<div class="menu-row"><span style="font-size:13px;color:var(--muted)">API Key 已保存在这台设备</span><button class="ai-btn" data-act="key-clear">清除</button></div>`:
+       `<form class="name-form" data-keyform="1" style="border-top:1px solid var(--line);padding-top:12px"><input id="key-in" type="password" placeholder="填入 Anthropic API Key（sk-ant-…）" autocomplete="off"><button type="submit">保存</button></form>
+        <div class="note" style="padding-top:0">在 Claude 里打开本页不需要填。Key 只保存在这台设备的浏览器里，不会上传到别处；不要在公用设备上填写。</div>`):''}
+     <div class="menu-row"><span>球员中文译名</span><small>译名库 ${Object.keys(NAMES).length} 人 · 自定义 ${Object.keys(customNames).length} 人</small></div>
      <div class="menu-row"><span>数据来源</span><small>${Live.state==='ok'?'MLB 官方 statsapi · 实时':'未连接 · 显示示例数据'}</small></div>
-     <div class="menu-row"><span>关于本垒</span><small>v0.2 演示版</small></div></section></div>`;
+     <div class="menu-row"><span>关于本垒</span><small>v0.3 演示版</small></div></section></div>`;
   return {mast,main};
 }
 
@@ -771,7 +812,7 @@ function sheetGame(g){
     const L=g.live,dots=(n,max,c)=>Array.from({length:max},(_,i)=>`<i class="dot ${c}${i<n?' on':''}"></i>`).join('');
     const atBat=L.half==='top'?g.a:g.h;
     h+=`<section class="panel"><div class="situ">${diamond(L.bases)}<div class="count"><div><span>B</span>${dots(L.b,3,'b')}</div><div><span>S</span>${dots(L.s,2,'s')}</div><div><span>O</span>${dots(L.outs,2,'o')}</div></div>
-      <div class="situ-tx"><span>${esc(team(atBat.t).n)}进攻</span><b>${esc(L.batterName||`第${L.batter}棒`)}</b><span>${g.real?'每 30 秒刷新':'模拟比赛 · 自动推进'}</span></div></div></section>`;
+      <div class="situ-tx"><span>${esc(team(atBat.t).n)}进攻</span>${L.batterId?(hint(L.batterId,L.batterName,atBat.t),`<button data-player="${L.batterId}" style="text-align:left"><b>${esc(dispName(L.batterName))}</b></button>`):`<b>${esc(L.batterName||`第${L.batter}棒`)}</b>`}<span>${g.real?'每 30 秒刷新':'模拟比赛 · 自动推进'}</span></div></div></section>`;
   }
   if(!pre){
     const n=Math.max(9,g.a.ln.length,g.h.ln.length);
@@ -781,7 +822,13 @@ function sheetGame(g){
   }
   const plays=g.real?Live.feed[g.pk]:g.plays;
   if(g.real&&!pre&&!plays)h+=`<section class="panel"><div class="sec-h">文字直播</div><div class="empty">正在读取…</div></section>`;
-  if(plays&&plays.length)h+=`<section class="panel"><div class="sec-h">文字直播${g.real?'<small>官方英文播报</small>':''}</div>${plays.slice(0,30).map(([t,m,r])=>`<div class="play${r?' run':''}"><small>${esc(t)}</small><span>${esc(m)}</span></div>`).join('')}</section>`;
+  if(!pre)h+=aiPanel(g);
+  if(plays&&plays.length){
+    const tr=(AIS[g.id]&&AIS[g.id].tr)||{map:{}},trBusy=tr.status==='run';
+    const trBtn=g.real&&aiMode()!=='none'?`<button class="ai-btn" data-ai="translate" data-g="${g.id}" ${trBusy?'disabled':''}>${trBusy?'翻译中…':Object.keys(tr.map).length?'翻译新内容':'翻译成中文'}</button>`:(g.real?'<small>官方英文播报</small>':'');
+    h+=`<section class="panel"><div class="sec-h">文字直播${trBtn}</div>${tr.status==='err'?`<div class="ai-meta">${esc(aiErr(tr.err))}</div>`:''}${plays.slice(0,30).map(([t,m,r])=>{const z=tr.map[m];
+      return `<div class="play${r?' run':''}"><small>${esc(t)}</small><span>${z?`${esc(z)}<span class="orig">${esc(m)}</span>`:esc(m)}</span></div>`;}).join('')}</section>`;
+  }
   if(pre)h+=`<section class="panel"><div class="sec-h">比赛信息</div><dl class="kv"><dt>开赛时间</dt><dd>${dayLabel(g.day).num} ${esc(g.time)}（本地时间）</dd><dt>球场</dt><dd>${esc(g.venue||'待定')}</dd>${g.a.sp||g.h.sp?`<dt>预计先发</dt><dd>${esc(g.a.sp||'待定')} vs ${esc(g.h.sp||'待定')}</dd>`:''}</dl></section>`;
   return h+'</div>';
 }
@@ -814,10 +861,10 @@ function sheetTeam(ab,tab){
     else if(!data.length)h+=`<section class="panel"><div class="empty">暂无数据</div></section>`;
     else if(isRoster){
       h+=`<section class="panel">${GROUPS.map(([k,v])=>{const ps=data.filter(p=>p.type===k);if(!ps.length)return '';
-        return `<div class="grp"><span>${v}</span><span>${ps.length}人</span></div>${ps.map(p=>`<div class="prow"><span class="jn">${esc(p.no||'-')}</span><span>${esc(p.n)}</span><em>${esc(POS_CN[p.pos]||p.pos)}</em></div>`).join('')}`;}).join('')}<div class="note">${SEASON} 赛季 26 人现役名单 · MLB 官方数据</div></section>`;
+        return `<div class="grp"><span>${v}</span><span>${ps.length}人</span></div>${ps.map(p=>{hint(p.id,p.n,ab);const z=zhName(p.n);return `<button class="prow" data-player="${p.id}"><span class="jn">${esc(p.no||'-')}</span><span>${z?`<b class="zh" style="font-weight:500">${esc(z)}</b><small>${esc(p.n)}</small>`:esc(p.n)}</span><em>${esc(POS_CN[p.pos]||p.pos)}</em></button>`;}).join('')}`;}).join('')}<div class="note">${SEASON} 赛季 26 人现役名单 · MLB 官方数据</div></section>`;
     }else{
       const mgr=data.filter(c=>c.job==='Manager'),rest=data.filter(c=>c.job!=='Manager');
-      h+=`<section class="panel">${[...mgr,...rest].map(c=>`<div class="prow"><span class="jn">${esc(c.no||'-')}</span><span>${esc(c.n)}<small>${esc(c.job)}</small></span><em>${esc(JOB_CN[c.job]||'教练组')}</em></div>`).join('')}<div class="note">${SEASON} 赛季教练团 · MLB 官方数据</div></section>`;
+      h+=`<section class="panel">${[...mgr,...rest].map(c=>`<div class="prow"><span class="jn">${esc(c.no||'-')}</span><span>${esc(dispName(c.n))}<small>${zhName(c.n)?esc(c.n)+' · ':''}${esc(c.job)}</small></span><em>${esc(JOB_CN[c.job]||'教练组')}</em></div>`).join('')}<div class="note">${SEASON} 赛季教练团 · MLB 官方数据</div></section>`;
     }
   }
   return h+'</div>';
@@ -834,6 +881,172 @@ function sheetSearch(q){
   return r;
 }
 
+
+/* ---------- AI 中文战报 (Claude) ---------- */
+// Inside a Claude viewer the page asks Claude on the viewer's own account (sample capability).
+// Anywhere else it can use the viewer's own Anthropic API key, kept only in this browser.
+const AI={sample:undefined};
+(window.claude&&typeof window.claude.use==='function'?window.claude.use('sample').catch(()=>null):Promise.resolve(null))
+  .then(sm=>{AI.sample=sm;if(S.tab==='me')render();refreshSheet();});
+let apiKey=store.get('apikey','');
+const aiMode=()=>AI.sample?'sample':apiKey?'key':'none';
+const AIS={}; // per game: {recap:{status,text,err}, tr:{status,map,err}}
+const aiState=id=>AIS[id]=AIS[id]||{recap:{status:'idle',text:''},tr:{status:'idle',map:{}}};
+const AI_ERR={not_granted:'你没有允许本页使用 Claude，刷新页面后可以重新选择。',rate_limited:'请求太频繁，请稍后再试。',bad_key:'API Key 无效，请到「我的」里重新填写。',
+  refusal:'Claude 没有完成这次请求，请稍后重试。',no_ai:'AI 功能未启用。',cancelled:'已停止。'};
+const aiErr=e=>AI_ERR[e&&e.code]||(e&&e.message?`生成失败：${e.message}`:'生成失败，请稍后再试。');
+
+async function askClaude(prompt,onText){
+  if(AI.sample){
+    try{return (await AI.sample(prompt,{onText})).text;}
+    catch(e){throw {code:e.code,message:e.message};}
+  }
+  if(!apiKey)throw {code:'no_ai'};
+  const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+    headers:{'content-type':'application/json','x-api-key':apiKey,'anthropic-version':'2026-10-21',
+      'anthropic-beta':'server-side-fallback-2026-07-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:'claude-opus-5-5',max_tokens:8000,stream:true,fallbacks:'default',
+      output_config:{effort:'medium'},messages:[{role:'user',content:prompt}]})});
+  if(!res.ok){
+    let m='';try{m=(await res.json()).error.message;}catch(_){}
+    throw {code:res.status===401||res.status===403?'bad_key':res.status===429?'rate_limited':'error',message:m};
+  }
+  const rd=res.body.getReader(),dec=new TextDecoder();let buf='',text='',stop=null;
+  for(;;){
+    const {done,value}=await rd.read();if(done)break;
+    buf+=dec.decode(value,{stream:true});let i;
+    while((i=buf.indexOf('\n\n'))>=0){
+      const ev=buf.slice(0,i);buf=buf.slice(i+2);
+      const line=ev.split('\n').find(l=>l.startsWith('data:'));if(!line)continue;
+      let j;try{j=JSON.parse(line.slice(5));}catch(_){continue;}
+      if(j.type==='content_block_delta'&&j.delta&&j.delta.type==='text_delta'){text+=j.delta.text;onText&&onText({text});}
+      else if(j.type==='message_delta'&&j.delta&&j.delta.stop_reason)stop=j.delta.stop_reason;
+      else if(j.type==='error')throw {code:'error',message:j.error&&j.error.message};
+    }
+  }
+  if(stop==='refusal')throw {code:'refusal'};
+  return text;
+}
+function nameRefs(texts){
+  const blob=normName(texts.join(' ')),out=[];
+  Object.keys(NAMES).forEach(k=>{if(blob.includes(k))out.push(`${k} = ${NAMES[k]}`);});
+  Object.keys(customNames).forEach(k=>{if(blob.includes(k))out.push(`${k} = ${customNames[k]}`);});
+  return out.length?out.join('\n'):'（无）';
+}
+function gameBrief(g){
+  const A=team(g.a.t),H=team(g.h.t),plays=(g.real?Live.feed[g.pk]:g.plays)||[];
+  const side=(s,t,k)=>`${k}：${t.city||''}${t.n}${t.en?`（${t.en}）`:''}，得分 ${runs(s)}，安打 ${s.h||0}，失误 ${s.e||0}`;
+  const ln=s=>(s.ln||[]).map(v=>v==null?'x':v).join(' ');
+  return [`赛事：${LG_NAME[g.lg]} ${g.stage}`,`球场：${g.venue||'未知'}`,`状态：${g.status==='live'?'进行中，'+statusText(g):'已完赛'}`,
+    side(g.a,A,'客队'),side(g.h,H,'主队'),`逐局得分（客队）：${ln(g.a)}`,`逐局得分（主队）：${ln(g.h)}`,
+    `文字直播（最新在前）：\n${plays.map(p=>`${p[0]} ${p[1]}`).join('\n')||'（无）'}`,
+    `球员中文译名参考（英文名小写 = 中文名）：\n${nameRefs(plays.map(p=>p[1]))}`].join('\n');
+}
+function aiPanel(g){
+  const st=aiState(g.id).recap,mode=aiMode(),live=g.status==='live';
+  if(mode==='none')return `<section class="panel"><div class="sec-h">AI 中文战报</div><div class="ai-meta">在 Claude 里打开本页即可使用；在其他网页打开时，到「我的」里填入你自己的 Anthropic API Key。</div></section>`;
+  const busy=st.status==='run',label=busy?'生成中…':st.text?(live?'更新速报':'重新生成'):(live?'生成局势速报':'生成战报');
+  let body='';
+  if(st.text){const [t,...rest]=st.text.split('\n');body=`<p class="ai-out" id="ai-out-${g.id}"><span class="ai-title">${esc(t)}</span>${esc(rest.join('\n').trim())}</p>`;}
+  else if(busy)body=`<p class="ai-out" id="ai-out-${g.id}">Claude 正在阅读比赛数据…</p>`;
+  else body=`<div class="ai-meta">根据比分、逐局得分和文字直播，由 Claude 写一篇中文${live?'局势速报':'战报'}。</div>`;
+  return `<section class="panel"><div class="sec-h">AI 中文战报<button class="ai-btn" data-ai="recap" data-g="${g.id}" ${busy?'disabled':''}>${label}</button></div>${body}
+    ${st.status==='err'?`<div class="ai-meta">${esc(aiErr(st.err))}</div>`:''}${st.text&&!busy?`<div class="ai-meta">由 Claude 根据${g.real?'MLB 官方':'示例'}数据生成，可能有误</div>`:''}</section>`;
+}
+async function runRecap(id){
+  const g=G(id),st=aiState(id).recap;if(!g||st.status==='run')return;
+  if(g.real&&!Live.feed[g.pk])await loadFeed(g.pk).catch(()=>{});
+  st.status='run';st.text='';st.err=null;refreshSheet();
+  const prompt=`你是一名中文棒球记者。根据下面的比赛数据写一篇简洁的中文${g.status==='live'?'局势速报':'赛后战报'}。
+要求：
+- 只使用数据里有的信息，不要编造数据里没有的细节、引语、伤病或球员。
+- 球员名使用译名参考里的中文名；没有译名的保留英文原名。球队用中文队名。
+- 棒球术语用大陆常用说法（全垒打、三振、保送、安打、打点、牛棚等）。
+${g.status==='live'?'- 比赛仍在进行，只写到目前为止的局势，不要预测最终结果。\n':''}- 格式：第一行是标题（不超过24个字，不带任何符号）；空一行；正文2到3段；空一行；写“要点”两个字，下面3行，每行以“· ”开头。
+- 不要使用 Markdown。
+
+${gameBrief(g)}`;
+  try{
+    st.text=await askClaude(prompt,({text})=>{st.text=text;const el=document.getElementById('ai-out-'+id);
+      if(el){const [t,...rest]=text.split('\n');el.innerHTML=`<span class="ai-title">${esc(t)}</span>${esc(rest.join('\n').trim())}`;}});
+    st.status='done';
+  }catch(e){st.status='err';st.err=e;}
+  refreshSheet();
+}
+async function runTranslate(id){
+  const g=G(id),tr=aiState(id).tr;if(!g||tr.status==='run')return;
+  const todo=((g.real?Live.feed[g.pk]:g.plays)||[]).map(p=>p[1]).filter(m=>!tr.map[m]).slice(0,30);
+  if(!todo.length)return;
+  tr.status='run';tr.err=null;refreshSheet();
+  const prompt=`把下面的棒球文字直播逐条翻译成简洁的中文。
+规则：球员名使用译名参考里的中文名，没有译名的保留英文；术语用大陆常用说法（全垒打、三振、保送、双杀、高飞牺牲打、野手选择等）；不要增删信息。
+按原顺序输出，每条一行，格式为“序号|译文”，不要输出其他任何内容。
+
+球员中文译名参考（英文名小写 = 中文名）：
+${nameRefs(todo)}
+
+${todo.map((m,i)=>`${i+1}|${m}`).join('\n')}`;
+  try{
+    const text=await askClaude(prompt);
+    text.split('\n').forEach(l=>{const m=l.trim().match(/^(\d+)\s*\|\s*(.+)$/);if(m&&todo[m[1]-1])tr.map[todo[m[1]-1]]=m[2].trim();});
+    tr.status='done';
+  }catch(e){tr.status='err';tr.err=e;}
+  refreshSheet();
+}
+
+/* ---------- player page ---------- */
+const COUNTRY={'USA':'美国','Dominican Republic':'多米尼加','Venezuela':'委内瑞拉','Japan':'日本','Cuba':'古巴','Puerto Rico':'波多黎各','Mexico':'墨西哥','Canada':'加拿大',
+  'South Korea':'韩国','Korea':'韩国','Colombia':'哥伦比亚','Panama':'巴拿马','Curacao':'库拉索','Taiwan':'中国台湾','Netherlands':'荷兰','Australia':'澳大利亚','Nicaragua':'尼加拉瓜',
+  'Bahamas':'巴哈马','Aruba':'阿鲁巴','Brazil':'巴西','Germany':'德国','Honduras':'洪都拉斯','Peru':'秘鲁','Lithuania':'立陶宛','South Africa':'南非','China':'中国'};
+const HAND={R:'右',L:'左',S:'左右开弓'};
+async function loadPlayer(id){
+  const d=await api(`/v1/people/${id}?hydrate=currentTeam,stats(group=[hitting,pitching],type=[season,career],season=${SEASON})`);
+  const p=d.people&&d.people[0];if(!p)throw new Error('player');
+  const st={};(p.stats||[]).forEach(x=>{const sp=x.splits&&x.splits[0];if(sp&&x.group&&x.type)st[x.group.displayName+'_'+x.type.displayName]=sp.stat;});
+  const pos=p.primaryPosition&&p.primaryPosition.abbreviation,grp=pos==='P'?'pitching':'hitting';
+  const lg=await api(`/v1/people/${id}/stats?stats=gameLog&group=${grp}&season=${SEASON}`).catch(()=>null);
+  const log=((lg&&lg.stats&&lg.stats[0]&&lg.stats[0].splits)||[]).slice(-10).reverse();
+  Live.player[id]={p,st,grp,log};
+  hint(id,p.fullName,p.currentTeam&&ID2AB[p.currentTeam.id]);
+}
+function heightCm(h){const m=String(h||'').match(/(\d+)'\s*(\d+)/);return m?Math.round((+m[1]*12+ +m[2])*2.54)+' 厘米':'';}
+const HIT=[['avg','打击率'],['homeRuns','全垒打'],['rbi','打点'],['ops','OPS'],['hits','安打'],['obp','上垒率'],['stolenBases','盗垒'],['gamesPlayed','出赛']];
+const PIT=[['era','防御率'],['wins','胜'],['losses','负'],['strikeOuts','三振'],['inningsPitched','局数'],['whip','WHIP'],['saves','救援'],['gamesPlayed','出赛']];
+function tiles(stat,defs){return `<div class="tiles">${defs.map(([k,v])=>`<div><b>${esc(stat[k]!=null?stat[k]:'—')}</b>${v}</div>`).join('')}</div>`;}
+function sheetPlayer(id){
+  const L=Live.player[id],hp=PH[id]||{},p=L&&L.p;
+  const en=p?p.fullName:hp.n||'',ab=(p&&p.currentTeam&&ID2AB[p.currentTeam.id])||hp.t,t=ab&&team(ab);
+  const zh=zhName(en),pos=p&&p.primaryPosition&&p.primaryPosition.abbreviation;
+  const tc=`style="--tc:${t?t.c:'var(--mast)'}"`;
+  let h=`<div class="sheet-h team" ${tc}>${backBtn}<b>${esc(zh||en||'球员')}</b><span class="side"></span></div>
+   <div class="phero" ${tc}>${I.seam}<div class="pshot">${esc((zh||en||'?').slice(0,1))}<img alt="" src="https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${id}/headshot/67/current" onerror="this.remove()"></div>
+   <div class="pinfo"><h2>${esc(zh||en)}</h2>${zh?`<small>${esc(en)}</small>`:''}<small>${[p&&p.primaryNumber?'#'+p.primaryNumber:'',pos?POS_CN[pos]||pos:'',t?t.n:''].filter(Boolean).map(esc).join(' · ')}</small></div></div><div class="wrap">`;
+  if(!L){
+    if(Live.state!=='ok')h+=`<section class="panel"><div class="empty">球员资料和比赛数据来自 MLB 官方实时数据。<br>当前环境无法连接 statsapi.mlb.com，部署到普通网页后即可显示。</div></section>`;
+    else h+=`<section class="panel"><div class="empty">${L===null?'没有读到这位球员的资料':'正在读取球员资料…'}</div></section>`;
+  }else{
+    const hand=`${HAND[p.batSide&&p.batSide.code]||'-'}打 / ${HAND[p.pitchHand&&p.pitchHand.code]||'-'}投`;
+    h+=`<section class="panel"><div class="sec-h">基本资料</div><dl class="kv">${p.currentAge?`<dt>年龄</dt><dd>${p.currentAge} 岁</dd>`:''}
+      <dt>出生地</dt><dd>${esc([p.birthCity,COUNTRY[p.birthCountry]||p.birthCountry].filter(Boolean).join('，')||'—')}</dd>
+      <dt>身高 / 体重</dt><dd>${esc([heightCm(p.height),p.weight?Math.round(p.weight*0.4536)+' 公斤':''].filter(Boolean).join(' / ')||'—')}</dd>
+      <dt>投打</dt><dd>${hand}</dd>${p.mlbDebutDate?`<dt>大联盟首秀</dt><dd>${esc(p.mlbDebutDate)}</dd>`:''}</dl></section>`;
+    const both=pos==='TWP'?['hitting','pitching']:[L.grp];
+    both.forEach(gp=>{const defs=gp==='pitching'?PIT:HIT,sea=L.st[gp+'_season'],car=L.st[gp+'_career'];
+      h+=`<section class="panel"><div class="sec-h">${SEASON} 赛季${gp==='pitching'?'投球':'打击'}<small>MLB 官方数据</small></div>${sea?tiles(sea,defs):'<div class="empty">本赛季暂无出赛</div>'}</section>`;
+      if(car)h+=`<section class="panel"><div class="sec-h">生涯${gp==='pitching'?'投球':'打击'}</div>${tiles(car,defs)}</section>`;});
+    if(L.log.length){
+      const pit=L.grp==='pitching',cols=pit?[['inningsPitched','局'],['hits','安'],['earnedRuns','责失'],['baseOnBalls','四坏'],['strikeOuts','三振']]:[['atBats','打数'],['hits','安打'],['homeRuns','全垒打'],['rbi','打点'],['strikeOuts','三振']];
+      h+=`<section class="panel"><div class="sec-h">最近 ${L.log.length} 场</div><div class="tbl-wrap"><table><thead><tr><th>日期</th><th>对手</th>${cols.map(c=>`<th>${c[1]}</th>`).join('')}</tr></thead><tbody>${L.log.map(x=>{
+        const o=x.opponent&&ID2AB[x.opponent.id];
+        return `<tr><td>${esc((x.date||'').slice(5))}</td><td class="tm"><span class="t">${x.isHome===false?'@':'vs'} ${o?logo(o)+esc(team(o).n):''}</span></td>${cols.map(c=>`<td>${esc(x.stat[c[0]]!=null?x.stat[c[0]]:'-')}</td>`).join('')}</tr>`;}).join('')}</tbody></table></div></section>`;
+    }
+  }
+  if(en)h+=`<section class="panel"><div class="sec-h">中文译名<small>${customNames[normName(en)]?'你设置的译名':NAMES[normName(en)]?'译名库':'暂无译名'}</small></div>
+    <form class="name-form" data-name="${esc(en)}"><input id="zh-in" maxlength="20" value="${esc(zh)}" placeholder="输入中文译名" autocomplete="off"><button type="submit">保存</button>${customNames[normName(en)]?'<button type="button" class="ghost" data-act="name-reset">恢复默认</button>':''}</form>
+    <div class="note">译名只保存在这台设备上，会用在名单、球员榜和 AI 战报里。</div></section>`;
+  return h+'</div>';
+}
+
 /* ---------- render ---------- */
 const TABS=[['home','首页'],['games','比赛'],['stats','数据'],['circle','圈子'],['me','我的']];
 const VIEWS={home:viewHome,games:viewGames,stats:viewStats,circle:viewCircle,me:viewMe};
@@ -847,8 +1060,10 @@ function sheetHTML(){
   if(s.kind==='news')return sheetArticle(NEWS.find(n=>n.id===s.id));
   if(s.kind==='game')return sheetGame(G(s.id));
   if(s.kind==='team')return sheetTeam(s.id,s.tab);
+  if(s.kind==='player')return sheetPlayer(s.id);
 }
 function openSheet(kind,id){
+  if(S.sheet&&kind!=='search')SHEET_STACK.push(S.sheet);
   S.sheet={kind,id,tab:'info'};
   const root=$('#sheet-root');
   if(kind==='search'){
@@ -856,6 +1071,7 @@ function openSheet(kind,id){
     $('#search-in').focus();
   }else root.innerHTML=`<div class="sheet">${sheetHTML()}</div>`;
   document.body.style.overflow='hidden';
+  if(kind==='player'&&Live.state==='ok'&&!Live.player[id])loadPlayer(id).catch(()=>{Live.player[id]=null;}).then(()=>{if(S.sheet&&S.sheet.id===id)refreshSheet();});
   if(kind==='game'){const g=G(id);if(g&&g.real&&g.status!=='pre')loadFeed(g.pk).catch(()=>{Live.feed[g.pk]=[];}).then(refreshSheet);}
 }
 function refreshSheet(){
@@ -863,7 +1079,12 @@ function refreshSheet(){
   if(s.kind==='search'){$('#search-res').innerHTML=sheetSearch($('#search-in').value);return;}
   const top=el.scrollTop;el.innerHTML=sheetHTML();el.scrollTop=top;
 }
-function closeSheet(){S.sheet=null;$('#sheet-root').innerHTML='';document.body.style.overflow='';}
+const SHEET_STACK=[];
+function closeSheet(all){
+  const prev=!all&&SHEET_STACK.pop();
+  if(prev){S.sheet=prev;$('#sheet-root').innerHTML=`<div class="sheet">${sheetHTML()}</div>`;return;}
+  SHEET_STACK.length=0;S.sheet=null;$('#sheet-root').innerHTML='';document.body.style.overflow='';
+}
 function setTeamTab(tab){
   S.sheet.tab=tab;refreshSheet();
   const ab=S.sheet.id;
@@ -876,7 +1097,7 @@ function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeou
 document.addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;
   const d=b.dataset;
-  if(d.tab){S.tab=d.tab;closeSheet();render();window.scrollTo(0,0);try{history.replaceState(null,'','#'+d.tab)}catch(_){}}
+  if(d.tab){S.tab=d.tab;closeSheet(true);render();window.scrollTo(0,0);try{history.replaceState(null,'','#'+d.tab)}catch(_){}}
   else if(d.ch){S.ch=d.ch;render();window.scrollTo(0,0);}
   else if(d.lg){S.lg=d.lg;render();}
   else if(d.day!==undefined){S.day=+d.day;render();}
@@ -884,6 +1105,11 @@ document.addEventListener('click',e=>{
   else if(d.sview){S.sview=d.sview;render();}
   else if(d.teamp){if(S.sheet&&S.sheet.kind==='team'){S.sheet.id=d.teamp;setTeamTab('info');$('#sheet-root .sheet').scrollTop=0;}else openSheet('team',d.teamp);}
   else if(d.ttab)setTeamTab(d.ttab);
+  else if(d.player)openSheet('player',+d.player);
+  else if(d.ai==='recap')runRecap(d.g);
+  else if(d.ai==='translate')runTranslate(d.g);
+  else if(d.act==='name-reset'){const f=b.closest('[data-name]');delete customNames[normName(f.dataset.name)];store.set('names',customNames);toast('已恢复默认译名');refreshSheet();}
+  else if(d.act==='key-clear'){apiKey='';store.set('apikey','');toast('已清除 API Key');render();}
   else if(d.news)openSheet('news',d.news);
   else if(d.game)openSheet('game',d.game);
   else if(d.act==='search')openSheet('search');
@@ -899,6 +1125,11 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('input',e=>{if(e.target.id==='search-in')$('#search-res').innerHTML=sheetSearch(e.target.value);});
 document.addEventListener('submit',e=>{
+  const nf=e.target.closest('[data-name]');
+  if(nf){e.preventDefault();const v=$('#zh-in').value.trim(),k=normName(nf.dataset.name);
+    if(v)customNames[k]=v;else delete customNames[k];store.set('names',customNames);toast(v?`译名已保存：${v}`:'已清除译名');refreshSheet();return;}
+  const kf=e.target.closest('[data-keyform]');
+  if(kf){e.preventDefault();const v=$('#key-in').value.trim();if(!v)return;apiKey=v;store.set('apikey',v);toast('API Key 已保存在本机');render();return;}
   const f=e.target.closest('[data-comment]');if(!f)return;e.preventDefault();
   const v=$('#cmt-in').value.trim();if(!v)return;
   (myComments[f.dataset.comment]=myComments[f.dataset.comment]||[]).unshift(['棒球新手',v,'刚刚',0]);
