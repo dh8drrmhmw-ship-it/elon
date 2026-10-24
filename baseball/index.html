@@ -487,7 +487,7 @@ let customNames=store.get('names',{});
 const zhName=n=>customNames[normName(n)]||NAMES[normName(n)]||'';
 const dispName=n=>zhName(n)||n;
 const PH={}; // player hints seen on screen: id -> {n, t}
-const hint=(id,n,t)=>{if(id&&!PH[id])PH[id]={n,t};};
+const hint=(id,n,t,job)=>{if(!id)return;const h=PH[id]=PH[id]||{n,t};if(job)h.job=job;};
 const LEAGUES=['MLB','NPB','KBO','中职','中国'];
 const LG_NAME={MLB:'美职棒',NPB:'日职',KBO:'韩职',中职:'中职',中国:'中国棒球联赛'};
 const logo=(c,cls='')=>{const t=team(c);return `<span class="logo ${MLB[c]?'':'cn '}${cls}" style="--tc:${t.c}">${esc(t.s)}</span>`;};
@@ -550,7 +550,7 @@ async function loadTeamExtra(ab){
     api(`/v1/teams/${id}/roster?rosterType=active&season=${SEASON}`).catch(()=>null),
     api(`/v1/teams/${id}/coaches?season=${SEASON}`).catch(()=>null)]);
   if(r)Live.roster[ab]=(r.roster||[]).map(p=>({id:p.person.id,n:p.person.fullName,no:p.jerseyNumber,pos:p.position.abbreviation,type:p.position.type}));
-  if(c){const seen=new Set();Live.coaches[ab]=(c.roster||[]).map(p=>({n:p.person.fullName,no:p.jerseyNumber,job:p.job}))
+  if(c){const seen=new Set();Live.coaches[ab]=(c.roster||[]).map(p=>({id:p.person.id,n:p.person.fullName,no:p.jerseyNumber,job:p.job}))
     .filter(x=>{const k=x.n+'|'+x.job;if(seen.has(k))return false;seen.add(k);return true;});}
   if(!r&&!c)throw new Error('team');
 }
@@ -897,7 +897,7 @@ function sheetTeam(ab,tab){
         return `<div class="grp"><span>${v}</span><span>${ps.length}人</span></div>${ps.map(p=>{hint(p.id,p.n,ab);const z=zhName(p.n);return `<button class="prow" data-player="${p.id}"><span class="jn">${esc(p.no||'-')}</span><span>${z?`<b class="zh" style="font-weight:500">${esc(z)}</b><small>${esc(p.n)}</small>`:esc(p.n)}</span><em>${esc(POS_CN[p.pos]||p.pos)}</em></button>`;}).join('')}`;}).join('')}<div class="note">${SEASON} 赛季 26 人现役名单 · MLB 官方数据</div></section>`;
     }else{
       const mgr=data.filter(c=>c.job==='Manager'),rest=data.filter(c=>c.job!=='Manager');
-      h+=`<section class="panel">${[...mgr,...rest].map(c=>`<div class="prow"><span class="jn">${esc(c.no||'-')}</span><span>${esc(dispName(c.n))}<small>${zhName(c.n)?esc(c.n)+' · ':''}${esc(c.job)}</small></span><em>${esc(JOB_CN[c.job]||'教练组')}</em></div>`).join('')}<div class="note">${SEASON} 赛季教练团 · MLB 官方数据</div></section>`;
+      h+=`<section class="panel">${[...mgr,...rest].map(c=>{hint(c.id,c.n,ab,c.job);return `<${c.id?`button data-player="${c.id}"`:'div'} class="prow"><span class="jn">${esc(c.no||'-')}</span><span>${esc(dispName(c.n))}<small>${zhName(c.n)?esc(c.n)+' · ':''}${esc(c.job)}</small></span><em>${esc(JOB_CN[c.job]||'教练组')}</em></${c.id?'button':'div'}>`;}).join('')}<div class="note">点击教练查看个人资料和球员时代数据 · ${SEASON} 赛季教练团 · MLB 官方数据</div></section>`;
     }
   }
   return h+'</div>';
@@ -1113,13 +1113,17 @@ const COUNTRY={'USA':'美国','Dominican Republic':'多米尼加','Venezuela':'�
   'Bahamas':'巴哈马','Aruba':'阿鲁巴','Brazil':'巴西','Germany':'德国','Honduras':'洪都拉斯','Peru':'秘鲁','Lithuania':'立陶宛','South Africa':'南非','China':'中国'};
 const HAND={R:'右',L:'左',S:'左右开弓'};
 async function loadPlayer(id){
-  const d=await api(`/v1/people/${id}?hydrate=currentTeam,stats(group=[hitting,pitching],type=[season,career],season=${SEASON})`);
+  const d=await api(`/v1/people/${id}?hydrate=currentTeam,stats(group=[hitting,pitching],type=[season,career,yearByYear],season=${SEASON})`);
   const p=d.people&&d.people[0];if(!p)throw new Error('player');
-  const st={};(p.stats||[]).forEach(x=>{const sp=x.splits&&x.splits[0];if(sp&&x.group&&x.type)st[x.group.displayName+'_'+x.type.displayName]=sp.stat;});
-  const pos=p.primaryPosition&&p.primaryPosition.abbreviation,grp=pos==='P'?'pitching':'hitting';
-  const lg=await api(`/v1/people/${id}/stats?stats=gameLog&group=${grp}&season=${SEASON}`).catch(()=>null);
+  const st={},years={};
+  (p.stats||[]).forEach(x=>{if(!x.group||!x.type)return;const g=x.group.displayName,t=x.type.displayName;
+    if(t==='yearByYear')years[g]=(x.splits||[]).filter(sp=>!sp.sport||sp.sport.id===1);
+    else{const sp=x.splits&&x.splits[0];if(sp)st[g+'_'+t]=sp.stat;}});
+  const pos=p.primaryPosition&&p.primaryPosition.abbreviation;
+  const grp=pos==='P'||(!years.hitting&&years.pitching)?'pitching':'hitting',coach=PH[id]&&PH[id].job;
+  const lg=coach?null:await api(`/v1/people/${id}/stats?stats=gameLog&group=${grp}&season=${SEASON}`).catch(()=>null);
   const log=((lg&&lg.stats&&lg.stats[0]&&lg.stats[0].splits)||[]).slice(-10).reverse();
-  Live.player[id]={p,st,grp,log};
+  Live.player[id]={p,st,grp,log,years};
   hint(id,p.fullName,p.currentTeam&&ID2AB[p.currentTeam.id]);
 }
 function heightCm(h){const m=String(h||'').match(/(\d+)'\s*(\d+)/);return m?Math.round((+m[1]*12+ +m[2])*2.54)+' 厘米':'';}
@@ -1129,24 +1133,33 @@ function tiles(stat,defs){return `<div class="tiles">${defs.map(([k,v])=>`<div><
 function sheetPlayer(id){
   const L=Live.player[id],hp=PH[id]||{},p=L&&L.p;
   const en=p?p.fullName:hp.n||'',ab=(p&&p.currentTeam&&ID2AB[p.currentTeam.id])||hp.t,t=ab&&team(ab);
-  const zh=zhName(en),pos=p&&p.primaryPosition&&p.primaryPosition.abbreviation;
+  const zh=zhName(en),pos=p&&p.primaryPosition&&p.primaryPosition.abbreviation,job=hp.job;
   const tc=`style="--tc:${t?t.c:'var(--mast)'}"`;
   let h=`<div class="sheet-h team" ${tc}>${backBtn}<b>${esc(zh||en||'球员')}</b><span class="side"></span></div>
    <div class="phero" ${tc}>${I.seam}<div class="pshot">${esc((zh||en||'?').slice(0,1))}<img alt="" src="https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${id}/headshot/67/current" onerror="this.remove()"></div>
-   <div class="pinfo"><h2>${esc(zh||en)}</h2>${zh?`<small>${esc(en)}</small>`:''}<small>${[p&&p.primaryNumber?'#'+p.primaryNumber:'',pos?POS_CN[pos]||pos:'',t?t.n:''].filter(Boolean).map(esc).join(' · ')}</small></div></div><div class="wrap">`;
+   <div class="pinfo"><h2>${esc(zh||en)}</h2>${zh?`<small>${esc(en)}</small>`:''}<small>${(job?[JOB_CN[job]||job,t?t.n:'']:[p&&p.primaryNumber?'#'+p.primaryNumber:'',pos?POS_CN[pos]||pos:'',t?t.n:'']).filter(Boolean).map(esc).join(' · ')}</small></div></div><div class="wrap">`;
   if(!L){
     if(Live.state!=='ok')h+=`<section class="panel"><div class="empty">球员资料和比赛数据来自 MLB 官方实时数据。<br>当前环境无法连接 statsapi.mlb.com，部署到普通网页后即可显示。</div></section>`;
-    else h+=`<section class="panel"><div class="empty">${L===null?'没有读到这位球员的资料':'正在读取球员资料…'}</div></section>`;
+    else h+=`<section class="panel"><div class="empty">${L===null?`没有读到这位${job?'教练':'球员'}的资料`:'正在读取资料…'}</div></section>`;
   }else{
     const hand=`${HAND[p.batSide&&p.batSide.code]||'-'}打 / ${HAND[p.pitchHand&&p.pitchHand.code]||'-'}投`;
     h+=`<section class="panel"><div class="sec-h">基本资料</div><dl class="kv">${p.currentAge?`<dt>年龄</dt><dd>${p.currentAge} 岁</dd>`:''}
       <dt>出生地</dt><dd>${esc([p.birthCity,COUNTRY[p.birthCountry]||p.birthCountry].filter(Boolean).join('，')||'—')}</dd>
       <dt>身高 / 体重</dt><dd>${esc([heightCm(p.height),p.weight?Math.round(p.weight*0.4536)+' 公斤':''].filter(Boolean).join(' / ')||'—')}</dd>
-      <dt>投打</dt><dd>${hand}</dd>${p.mlbDebutDate?`<dt>大联盟首秀</dt><dd>${esc(p.mlbDebutDate)}</dd>`:''}</dl></section>`;
+      ${p.batSide||p.pitchHand?`<dt>投打</dt><dd>${hand}</dd>`:''}${p.mlbDebutDate?`<dt>大联盟首秀</dt><dd>${esc(p.mlbDebutDate)}</dd>`:''}</dl></section>`;
+    if(job)h+=`<section class="panel"><div class="sec-h">现任职务</div><dl class="kv"><dt>球队</dt><dd>${t?esc(t.city+t.n):'—'}</dd><dt>职务</dt><dd>${esc(JOB_CN[job]||'教练组')}<br><small style="color:var(--faint)">${esc(job)}</small></dd></dl></section>`;
     const both=pos==='TWP'?['hitting','pitching']:[L.grp];
-    both.forEach(gp=>{const defs=gp==='pitching'?PIT:HIT,sea=L.st[gp+'_season'],car=L.st[gp+'_career'];
-      h+=`<section class="panel"><div class="sec-h">${SEASON} 赛季${gp==='pitching'?'投球':'打击'}<small>MLB 官方数据</small></div>${sea?tiles(sea,defs):'<div class="empty">本赛季暂无出赛</div>'}</section>`;
-      if(car)h+=`<section class="panel"><div class="sec-h">生涯${gp==='pitching'?'投球':'打击'}</div>${tiles(car,defs)}</section>`;});
+    if(job&&!L.st[L.grp+'_career'])h+=`<section class="panel"><div class="sec-h">球员时代</div><div class="empty">没有大联盟出赛记录</div></section>`;
+    else both.forEach(gp=>{const defs=gp==='pitching'?PIT:HIT,sea=L.st[gp+'_season'],car=L.st[gp+'_career'],kind=gp==='pitching'?'投球':'打击';
+      if(!job)h+=`<section class="panel"><div class="sec-h">${SEASON} 赛季${kind}<small>MLB 官方数据</small></div>${sea?tiles(sea,defs):'<div class="empty">本赛季暂无出赛</div>'}</section>`;
+      if(car)h+=`<section class="panel"><div class="sec-h">${job?'球员时代 · 生涯'+kind:'生涯'+kind}</div>${tiles(car,defs)}</section>`;
+      const ys=(L.years&&L.years[gp])||[];
+      if(ys.length){
+        const cols=gp==='pitching'?[['gamesPlayed','出赛'],['era','防御率'],['wins','胜'],['losses','负'],['strikeOuts','三振'],['inningsPitched','局数']]:[['gamesPlayed','出赛'],['avg','打击率'],['homeRuns','全垒打'],['rbi','打点'],['ops','OPS']];
+        h+=`<section class="panel"><div class="sec-h">历年${kind}<small>${ys[0].season}–${ys[ys.length-1].season} · 共 ${new Set(ys.map(y=>y.season)).size} 季</small></div><div class="tbl-wrap"><table><thead><tr><th>年份</th><th>球队</th>${cols.map(c=>`<th>${c[1]}</th>`).join('')}</tr></thead><tbody>${ys.slice().reverse().map(y=>{
+          const ab2=y.team&&ID2AB[y.team.id],tn=ab2?logo(ab2)+esc(team(ab2).n):esc(y.team?y.team.name:'合计');
+          return `<tr><td>${esc(y.season)}</td><td class="tm"><span class="t">${tn}</span></td>${cols.map(c=>`<td>${esc(y.stat[c[0]]!=null?y.stat[c[0]]:'-')}</td>`).join('')}</tr>`;}).join('')}</tbody></table></div></section>`;
+      }});
     if(L.log.length){
       const pit=L.grp==='pitching',cols=pit?[['inningsPitched','局'],['hits','安'],['earnedRuns','责失'],['baseOnBalls','四坏'],['strikeOuts','三振']]:[['atBats','打数'],['hits','安打'],['homeRuns','全垒打'],['rbi','打点'],['strikeOuts','三振']];
       h+=`<section class="panel"><div class="sec-h">最近 ${L.log.length} 场</div><div class="tbl-wrap"><table><thead><tr><th>日期</th><th>对手</th>${cols.map(c=>`<th>${c[1]}</th>`).join('')}</tr></thead><tbody>${L.log.map(x=>{
@@ -1156,7 +1169,7 @@ function sheetPlayer(id){
   }
   if(en)h+=`<section class="panel"><div class="sec-h">中文译名<small>${customNames[normName(en)]?'你设置的译名':NAMES[normName(en)]?'译名库':'暂无译名'}</small></div>
     <form class="name-form" data-name="${esc(en)}"><input id="zh-in" maxlength="20" value="${esc(zh)}" placeholder="输入中文译名" autocomplete="off"><button type="submit">保存</button>${customNames[normName(en)]?'<button type="button" class="ghost" data-act="name-reset">恢复默认</button>':''}</form>
-    <div class="note">译名只保存在这台设备上，会用在名单、球员榜和 AI 战报里。</div></section>`;
+    <div class="note">译名只保存在这台设备上，会用在名单、教练团、球员榜和 AI 战报里。</div></section>`;
   return h+'</div>';
 }
 
