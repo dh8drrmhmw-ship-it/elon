@@ -323,7 +323,9 @@ td.tm button,td.tm span.t{display:inline-flex;align-items:center;gap:8px}
 .name-form input{flex:1;min-width:0;height:36px;border-radius:8px;border:1px solid var(--line);background:var(--soft);color:var(--fg);padding:0 10px;font:inherit;font-size:14px}
 .name-form button{flex:none;padding:0 14px;border-radius:8px;background:var(--brand);color:var(--card);font-size:14px;font-weight:500}
 .name-form button.ghost{background:var(--soft);color:var(--muted)}
-.prow{width:100%}
+.prow{width:100%;box-sizing:border-box}
+.prow>span:not(.jn) small{overflow-wrap:anywhere}
+.prow em{flex:none}
 .prow .zh{font-size:14px}
 /* AI */
 .ai-btn{flex:none;padding:5px 12px;border-radius:14px;background:var(--brand-soft);color:var(--brand-ink);font-size:13px;font-weight:500}
@@ -405,7 +407,7 @@ const MLB_RAW=[
  [146,'MIA','马林鱼','迈阿密','Miami Marlins','#00A3E0','国联','东区',1993,'loanDepot 球场',[1997,2003],['吉安卡洛·斯坦顿','何塞·费尔南德斯','米格尔·卡布雷拉'],
   '1993年加入的扩军球队，两次以外卡身份打进季后赛并一路夺冠（1997、2003年）。2012年改名迈阿密马林鱼并启用新球场。'],
  [158,'MIL','酿酒人','密尔沃基','Milwaukee Brewers','#12284B','国联','中区',1969,'美国家庭球场',[],['罗宾·扬特','保罗·莫利特','莱恩·布劳恩'],
-  '1969年以西雅图领航员之名建队，第二年迁到密尔沃基。1998年从美国联盟转入国家联盟。1982年曾打进世界大赛。'],
+  '1969年以西雅图领航员之名建队，第二年迁到密尔沃基。1998年从美国联盟转入国家联盟。1982年曾打进世界大赛，2026年第二次打进世界大赛。'],
  [142,'MIN','双城','明尼阿波利斯','Minnesota Twins','#002B5C','美联','中区',1901,'标靶球场',[1924,1987,1991],['哈蒙·基利布鲁','柯比·帕基特','罗德·卡鲁','乔·莫尔'],
   '前身是华盛顿参议员队，1924年在华盛顿夺冠，1961年迁至明尼苏达。1987、1991年两次夺冠，两届世界大赛都是主场全胜。'],
  [121,'NYM','大都会','纽约','New York Mets','#002D72','国联','东区',1962,'花旗球场',[1969,1986],['汤姆·西佛','麦克·皮亚萨','戴维·赖特','达里尔·斯特劳贝里'],
@@ -427,7 +429,7 @@ const MLB_RAW=[
  [138,'STL','红雀','圣路易','St. Louis Cardinals','#C41E3A','国联','中区',1882,'布希球场',[1926,1931,1934,1942,1944,1946,1964,1967,1982,2006,2011],['斯坦·穆休','鲍勃·吉布森','奥兹·史密斯','阿尔伯特·普霍斯'],
   '共拿下11座世界大赛冠军，是国家联盟夺冠最多的球队。圣路易被认为是美国最懂棒球的城市之一。'],
  [139,'TB','光芒','坦帕湾','Tampa Bay Rays','#092C5C','美联','东区',1998,'纯品康纳球场',[],['伊凡·隆戈里亚','卡尔·克劳福德'],
-  '1998年加入的扩军球队，2008年由“魔鬼鱼”改名“光芒”，当年就打进世界大赛，2020年再次打进。以低薪资、高效率的球队运营著称。'],
+  '1998年加入的扩军球队，2008年由“魔鬼鱼”改名“光芒”，当年就打进世界大赛，2020年再次打进，2026年第三次打进。以低薪资、高效率的球队运营著称。'],
  [140,'TEX','游骑兵','阿灵顿','Texas Rangers','#003278','美联','西区',1961,'环球人寿球场',[2023],['诺兰·莱恩','伊凡·罗德里格斯','麦克·杨','阿德里安·贝尔特雷'],
   '前身是1961年成立的第二代华盛顿参议员，1972年迁到德州。2023年击败响尾蛇，拿下队史首座世界大赛冠军。'],
  [141,'TOR','蓝鸟','多伦多','Toronto Blue Jays','#134A8E','美联','东区',1977,'罗杰斯中心',[1992,1993],['罗伯托·阿洛马','罗伊·哈勒戴','何塞·包蒂斯塔','卡洛斯·德尔加多'],
@@ -439,6 +441,7 @@ const MLB={},ID2AB={};
 MLB_RAW.forEach(([id,ab,n,city,en,c,lg,div,y,park,ws,leg,intro])=>{MLB[ab]={id,ab,n,city,en,c,lg,div,y,park,ws,leg,intro,s:ab,league:'MLB'};ID2AB[id]=ab;});
 const DIVS=[['美联','东区'],['美联','中区'],['美联','西区'],['国联','东区'],['国联','中区'],['国联','西区']];
 const DIV_ID={201:'美联东区',202:'美联中区',200:'美联西区',204:'国联东区',205:'国联中区',203:'国联西区'};
+const DIV_ORDER=['美联东区','美联中区','美联西区','国联东区','国联中区','国联西区'];
 
 /* other leagues: example content only */
 const OTHER={
@@ -505,7 +508,7 @@ async function loadStandings(){
   const d=await api(`/v1/standings?leagueId=103,104&season=${SEASON}&standingsTypes=regularSeason`);
   Live.standings=(d.records||[]).map(r=>[DIV_ID[r.division.id]||'',r.teamRecords.map(t=>{
     const ab=ID2AB[t.team.id];Live.records[ab]={w:t.wins,l:t.losses,rank:t.divisionRank,gb:t.gamesBack};
-    return [ab,t.wins,t.losses,t.gamesBack];})]).filter(r=>r[0]).sort((a,b)=>Object.values(DIV_ID).indexOf(a[0])-Object.values(DIV_ID).indexOf(b[0]));
+    return [ab,t.wins,t.losses,t.gamesBack];})]).filter(r=>r[0]).sort((a,b)=>DIV_ORDER.indexOf(a[0])-DIV_ORDER.indexOf(b[0]));
 }
 async function loadLeaders(){
   const q=(cats,grp)=>api(`/v1/stats/leaders?leaderCategories=${cats}&statGroup=${grp}&season=${SEASON}&sportId=1&limit=5`);
@@ -520,7 +523,8 @@ async function loadTeamExtra(ab){
     api(`/v1/teams/${id}/roster?rosterType=active&season=${SEASON}`).catch(()=>null),
     api(`/v1/teams/${id}/coaches?season=${SEASON}`).catch(()=>null)]);
   if(r)Live.roster[ab]=(r.roster||[]).map(p=>({id:p.person.id,n:p.person.fullName,no:p.jerseyNumber,pos:p.position.abbreviation,type:p.position.type}));
-  if(c)Live.coaches[ab]=(c.roster||[]).map(p=>({n:p.person.fullName,no:p.jerseyNumber,job:p.job}));
+  if(c){const seen=new Set();Live.coaches[ab]=(c.roster||[]).map(p=>({n:p.person.fullName,no:p.jerseyNumber,job:p.job}))
+    .filter(x=>{const k=x.n+'|'+x.job;if(seen.has(k))return false;seen.add(k);return true;});}
   if(!r&&!c)throw new Error('team');
 }
 async function loadFeed(pk){
