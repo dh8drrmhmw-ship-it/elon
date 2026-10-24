@@ -356,6 +356,14 @@ td.tm button,td.tm span.t{display:inline-flex;align-items:center;gap:8px}
 .traits span{display:flex;align-items:center;gap:8px}
 .traits em{font-style:normal;font-size:11px;padding:2px 5px;border-radius:3px;color:var(--on-team);background:var(--red)}
 .traits em.weak{background:var(--brand)}
+.abars{display:grid;grid-template-columns:1fr 1fr;gap:12px 18px;padding:6px 14px 14px}
+.abar{display:grid;grid-template-columns:1fr auto;gap:4px 8px;font-size:13px;min-width:0}
+.abar span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
+.abar b{font:600 15px var(--f-num)}
+.abar i{grid-column:1/-1;height:5px;border-radius:3px;background:var(--line);overflow:hidden}
+.abar i::before{content:"";display:block;height:100%;width:var(--w);background:var(--c)}
+.ovr-badge{position:absolute;right:0;top:0;display:grid;justify-items:center;padding:6px 10px;border-radius:10px;background:rgba(0,0,0,.22);font-size:10px;letter-spacing:.04em}
+.ovr-badge b{font:700 26px/1 var(--f-num)}
 .tx{display:flex;align-items:center;gap:10px;padding:11px 14px;border-top:1px solid var(--line);font-size:14px}
 .tx-d{flex:none;width:76px;display:grid}
 .tx-d b{font:600 16px var(--f-num);color:var(--muted)}
@@ -1178,19 +1186,39 @@ const HIT=[['avg','打击率'],['homeRuns','全垒打'],['rbi','打点'],['ops',
 const PIT=[['era','防御率'],['wins','胜'],['losses','负'],['strikeOuts','三振'],['inningsPitched','局数'],['whip','WHIP'],['saves','救援'],['gamesPlayed','出赛']];
 function tiles(stat,defs){return `<div class="tiles">${defs.map(([k,v])=>`<div><b>${esc(stat[k]!=null?stat[k]:'—')}</b>${v}</div>`).join('')}</div>`;}
 const ipNum=x=>{const [a,b]=String(x||'0').split('.');return (+a||0)+(+b||0)/3;};
-const lin=(v,lo,hi)=>Math.round(40+59*Math.max(0,Math.min(1,(v-lo)/(hi-lo))));
-// Ratings are this page's own conversion of season stats onto a 40-99 scale, not an official rating.
-function ratingsFor(gp,st){
-  const n=x=>parseFloat(x)||0;
-  if(!st)return null;
-  if(gp==='hitting'){
-    if(n(st.atBats)<60)return {few:1};
-    const avg=n(st.avg),iso=n(st.slg)-avg,bbk=n(st.baseOnBalls)/Math.max(1,n(st.strikeOuts));
-    return {axes:[['打击',lin(avg,.200,.320)],['力量',lin(iso,.080,.300)],['上垒',lin(n(st.obp),.270,.420)],['速度',lin(n(st.stolenBases),0,40)],['选球',lin(bbk,.15,1)],['出赛',lin(n(st.gamesPlayed),30,160)]]};
-  }
-  const ip=ipNum(st.inningsPitched);if(ip<15)return {few:1};
-  const k9=n(st.strikeOuts)*9/ip,bb9=n(st.baseOnBalls)*9/ip,hr9=n(st.homeRuns)*9/ip;
-  return {axes:[['压制',lin(5.5-n(st.era),0,3.5)],['三振',lin(k9,6,12.5)],['控球',lin(4.5-bb9,0,3.2)],['WHIP',lin(1.55-n(st.whip),0,.65)],['防全垒打',lin(1.8-hr9,0,1.3)],['耐投',lin(ip,30,200)]]};
+/* ---------- 能力值：MLB The Show Live Series（GitHub Actions 每天抓取成 ratings.json） ---------- */
+const RT={state:'loading',data:null,by:{}};
+fetch('ratings.json',{cache:'no-cache'}).then(r=>r.ok?r.json():Promise.reject(r.status)).then(d=>{
+  RT.data=d;RT.state='ok';(d.players||[]).forEach(x=>{(RT.by[normName(x.n)]=RT.by[normName(x.n)]||[]).push(x);});
+}).catch(()=>{RT.state='none';}).finally(()=>{if(S.sheet&&S.sheet.kind==='player')refreshSheet();});
+const SHOW_TEAM={ARI:'AZ',CWS:'CHW',WSH:'WAS',KC:'KC',SD:'SD',SF:'SF',TB:'TB'};
+function ratingOf(name,ab,wantPitcher){
+  const list=RT.by[normName(name)]||[];if(!list.length)return null;
+  const byTeam=list.filter(x=>x.t===ab||x.t===SHOW_TEAM[ab]);
+  const pool=byTeam.length?byTeam:list;
+  return pool.find(x=>wantPitcher==null||x.h!==wantPitcher)||pool[0];
+}
+const ATTR_CN={contact_left:'对左投击球',contact_right:'对右投击球',power_left:'对左投力量',power_right:'对右投力量',plate_vision:'击球视野',plate_discipline:'选球纪律',
+  batting_clutch:'关键时刻',bunting_ability:'触击',drag_bunting_ability:'拖击触击',hitting_durability:'打击耐久',fielding_durability:'守备耐久',fielding_ability:'守备能力',
+  arm_strength:'传球臂力',arm_accuracy:'传球准度',reaction_time:'反应速度',blocking:'捕手挡球',speed:'速度',baserunning_ability:'跑垒能力',baserunning_aggression:'跑垒积极性',
+  stamina:'耐力',pitching_clutch:'关键时刻',hits_per_bf:'压制安打',k_per_bf:'三振能力',bb_per_bf:'保送控制',hr_per_bf:'压制全垒打',pitch_velocity:'球速',pitch_control:'控球',pitch_movement:'球路变化'};
+const NOT_TRAIT=['bunting_ability','drag_bunting_ability','blocking','hitting_durability','fielding_durability','baserunning_aggression'];
+const avgOf=(a,...k)=>{const v=k.map(x=>a[x]).filter(x=>typeof x==='number');return v.length?Math.round(v.reduce((x,y)=>x+y,0)/v.length):null;};
+function showAxes(c){
+  const a=c.a;
+  return (c.h?[['击球',avgOf(a,'contact_left','contact_right')],['力量',avgOf(a,'power_left','power_right')],['选球',avgOf(a,'plate_vision','plate_discipline')],['速度',a.speed],['守备',avgOf(a,'fielding_ability','reaction_time')],['臂力',avgOf(a,'arm_strength','arm_accuracy')]]
+    :[['球速',a.pitch_velocity],['控球',a.pitch_control],['变化',a.pitch_movement],['三振',a.k_per_bf],['压制',avgOf(a,'hits_per_bf','hr_per_bf')],['耐力',a.stamina]]).filter(x=>x[1]!=null);
+}
+const barColor=v=>v>=90?'var(--red)':v>=80?'#e8772e':v>=70?'var(--gold)':'var(--faint)';
+function ratingHTML(c,pos){
+  const axes=showAxes(c),attrs=Object.entries(c.a);
+  const sorted=attrs.filter(([k])=>!NOT_TRAIT.includes(k)).sort((x,y)=>y[1]-x[1]);
+  const strong=sorted.filter(x=>x[1]>=90).slice(0,4),weak=sorted.filter(x=>x[1]<=45).slice(-3);
+  return `<section class="panel"><div class="overall">综合能力<b>${c.ovr}</b></div>${axes.length>=3?radarSVG(axes.map(([k,v])=>[k,Math.min(99,v)])):''}
+    ${strong.length||weak.length?`<div class="traits">${strong.map(x=>`<span><em>强项</em>${ATTR_CN[x[0]]}</span>`).join('')}${weak.map(x=>`<span><em class="weak">弱项</em>${ATTR_CN[x[0]]}</span>`).join('')}</div>`:''}</section>
+    <section class="panel"><div class="sec-h">${c.h?'打击与守备':'投球'}能力<small>${esc(c.pos||pos||'')}</small></div><div class="abars">${attrs.filter(([k])=>ATTR_CN[k]&&(k!=='blocking'||c.pos==='C')).map(([k,v])=>
+      `<div class="abar"><span>${ATTR_CN[k]}</span><b>${v}</b><i style="--w:${Math.min(100,v)}%;--c:${barColor(v)}"></i></div>`).join('')}</div>
+    <div class="note">数据来源：${esc(RT.data.source)} Live Series 球员卡 · 更新于 ${esc(RT.data.updated)}。游戏评分仅供参考。</div></section>`;
 }
 function radarSVG(axes){
   const cx=170,cy=150,R=92,N=axes.length,pt=(i,r)=>{const a=-Math.PI/2+i*2*Math.PI/N;return [cx+r*Math.cos(a),cy+r*Math.sin(a)];};
@@ -1247,7 +1275,7 @@ function sheetPlayer(id,tab){
   if(!tabs.some(x=>x[0]===tab))tab=tabs[0][0];
   let h=`<div class="sheet-h team" ${tc}>${backBtn}<b>${esc(zh||en||'球员')}</b><span class="side"></span></div>
    <div class="phero" ${tc}>${I.seam}<div class="phero-top">${headshot(id,(zh||en||'?').slice(0,1))}
-   <div class="pinfo"><h2>${esc(zh||en)}</h2>${zh?`<small>${esc(en)}</small>`:''}${sub?`<small>${esc(sub)}</small>`:''}</div></div>
+   ${(()=>{const c=!job&&RT.state==='ok'&&ratingOf(en,ab,L&&L.grp==='pitching');return c?`<div class="ovr-badge"><b>${c.ovr}</b>The Show</div>`:'';})()}<div class="pinfo"><h2>${esc(zh||en)}</h2>${zh?`<small>${esc(en)}</small>`:''}${sub?`<small>${esc(sub)}</small>`:''}</div></div>
    <div class="pbar">${bar.map(([v,k])=>`<div><b>${esc(v)}</b>${k}</div>`).join('')}</div></div>
    <nav class="ttabs" role="tablist" ${tc}>${tabs.map(([k,v])=>`<button role="tab" aria-selected="${tab===k}" data-ptab="${k}">${v}</button>`).join('')}</nav><div class="wrap">`;
   if(!L){
@@ -1268,17 +1296,13 @@ function sheetPlayer(id,tab){
     }
     both.forEach(gp=>h+=yearsHTML(L,gp));
   }else if(tab==='rating'){
-    both.forEach(gp=>{
-      let r=ratingsFor(gp,L.st[gp+'_season']),src=`${SEASON} 赛季`;
-      if(!r||r.few){r=ratingsFor(gp,L.st[gp+'_career']);src='生涯';}
-      const kind=gp==='pitching'?'投球':'打击';
-      if(!r||r.few){h+=`<section class="panel"><div class="sec-h">${kind}能力值</div><div class="empty">出场太少，暂时无法换算</div></section>`;return;}
-      const avgv=Math.round(r.axes.reduce((a,x)=>a+x[1],0)/r.axes.length);
-      const sorted=r.axes.slice().sort((a,b)=>b[1]-a[1]),strong=sorted.filter(x=>x[1]>=80).slice(0,3),weak=sorted.filter(x=>x[1]<=55).slice(-2);
-      h+=`<section class="panel"><div class="overall">${both.length>1?kind:'综合能力'}<b>${avgv}</b></div>${radarSVG(r.axes)}
-        ${strong.length||weak.length?`<div class="traits">${strong.map(x=>`<span><em>强项</em>${x[0]}</span>`).join('')}${weak.map(x=>`<span><em class="weak">弱项</em>${x[0]}</span>`).join('')}</div>`:''}
-        <div class="note">按${src}数据换算成 40–99 分，仅供参考，不是官方评分。${gp==='pitching'?'压制看防御率，控球看每九局保送，耐投看投球局数。':'力量看长打率减打击率，选球看保送与三振之比。'}</div></section>`;
-    });
+    if(RT.state==='loading')h+=`<section class="panel"><div class="empty">正在读取能力值…</div></section>`;
+    else if(RT.state!=='ok')h+=`<section class="panel"><div class="empty">能力值来自 MLB The Show 26，由网站每天自动更新。<br>这个页面暂时没有能力值数据。</div></section>`;
+    else{
+      const cards=pos==='TWP'?[ratingOf(en,ab,false),ratingOf(en,ab,true)].filter((c,i,arr)=>c&&arr.indexOf(c)===i):[ratingOf(en,ab,L.grp==='pitching')].filter(Boolean);
+      if(!cards.length)h+=`<section class="panel"><div class="empty">MLB The Show 里没有找到这位球员的能力值</div></section>`;
+      else cards.forEach(c=>h+=ratingHTML(c,pos?POS_CN[pos]:''));
+    }
   }else if(tab==='info'){
     h+=`<section class="panel"><div class="sec-h">基本资料</div><dl class="kv"><dt>姓名</dt><dd>${esc(zh||en)}</dd><dt>英文全名</dt><dd>${esc(p.fullFMLName||en)}</dd>
       ${p.birthDate?`<dt>生日</dt><dd>${esc(p.birthDate)}${p.currentAge?`（${p.currentAge} 岁）`:''}</dd>`:''}

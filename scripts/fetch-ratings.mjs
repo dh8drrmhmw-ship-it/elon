@@ -17,8 +17,15 @@ const PITCHER = ['stamina', 'pitching_clutch', 'hits_per_bf', 'k_per_bf', 'bb_pe
 async function getJSON(url, tries = 3) {
   for (let i = 1; ; i++) {
     try {
-      const r = await fetch(url, { headers: { 'user-agent': 'benlei-baseball/1.0' } });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const r = await fetch(url, { headers: {
+        'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15',
+        'accept': 'application/json,text/plain,*/*',
+        'accept-language': 'en-US,en;q=0.9',
+      } });
+      if (!r.ok) {
+        const body = (await r.text()).replace(/\s+/g, ' ').slice(0, 300);
+        throw new Error(`HTTP ${r.status} ${r.headers.get('server') || ''} ${body}`);
+      }
       return await r.json();
     } catch (e) {
       if (i >= tries) throw new Error(`${url}: ${e.message}`);
