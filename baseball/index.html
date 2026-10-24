@@ -306,6 +306,33 @@ td.tm button,td.tm span.t{display:inline-flex;align-items:center;gap:8px}
 .prow small{font-size:12px;color:var(--faint)}
 .prow em{font-style:normal;font-size:12px;color:var(--muted);white-space:nowrap}
 .grp{padding:12px 14px 6px;font-size:12px;color:var(--muted);letter-spacing:.06em;display:flex;justify-content:space-between}
+/* postseason bracket */
+.wsbar{display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px}
+.wsbar .eyebrow{color:var(--red)}
+.wsbar div{flex:1;min-width:0;display:flex;align-items:center;gap:8px;font-size:15px;font-weight:500}
+.wsbar b{font:700 20px var(--f-num)}
+.wsbar svg{width:16px;height:16px;color:var(--faint);transform:rotate(180deg)}
+.round-h{display:flex;align-items:baseline;justify-content:space-between;padding:14px 14px 6px}
+.round-h b{font-size:15px}
+.round-h small{font-size:12px;color:var(--faint)}
+.bcols{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:0 14px 14px}
+.bcol{display:grid;gap:8px;align-content:start;min-width:0}
+.bcol h4{margin:0;font-size:11px;font-weight:500;color:var(--faint);letter-spacing:.12em}
+.series{display:grid;gap:6px;width:100%;padding:10px;border-radius:10px;background:var(--soft);min-width:0}
+.sr{display:flex;align-items:center;gap:6px;font-size:13px;min-width:0}
+.sr>span:not(.logo){flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sr b{font:600 19px/1 var(--f-num);font-variant-numeric:tabular-nums}
+.sr.lose{color:var(--faint)}
+.series small{font-size:11px;color:var(--muted)}
+.series small.done{color:var(--brand-ink)}
+.series small.on{color:var(--red)}
+.series.big{padding:14px;gap:10px}
+.series.big .sr{font-size:17px;gap:10px}
+.series.big .sr b{font-size:32px}
+.series.big small{font-size:13px}
+.wsg{display:flex;gap:6px;flex-wrap:wrap;padding:0 14px 14px}
+.wsg button{padding:5px 10px;border-radius:8px;background:var(--soft);font:500 13px var(--f-body);color:var(--muted);display:inline-flex;gap:6px;align-items:baseline}
+.wsg button b{font:600 15px var(--f-num);color:var(--fg)}
 /* player page */
 .phero{position:relative;overflow:hidden;color:var(--on-team);background:linear-gradient(160deg,var(--tc) 0%,var(--tc) 45%,var(--mast-2) 150%);
   padding:6px max(16px,env(safe-area-inset-right,0px)) 18px max(16px,env(safe-area-inset-left,0px));display:flex;align-items:center;gap:14px}
@@ -323,7 +350,9 @@ td.tm button,td.tm span.t{display:inline-flex;align-items:center;gap:8px}
 .name-form input{flex:1;min-width:0;height:36px;border-radius:8px;border:1px solid var(--line);background:var(--soft);color:var(--fg);padding:0 10px;font:inherit;font-size:14px}
 .name-form button{flex:none;padding:0 14px;border-radius:8px;background:var(--brand);color:var(--card);font-size:14px;font-weight:500}
 .name-form button.ghost{background:var(--soft);color:var(--muted)}
-.prow{width:100%}
+.prow{width:100%;box-sizing:border-box}
+.prow>span:not(.jn) small{overflow-wrap:anywhere}
+.prow em{flex:none}
 .prow .zh{font-size:14px}
 /* AI */
 .ai-btn{flex:none;padding:5px 12px;border-radius:14px;background:var(--brand-soft);color:var(--brand-ink);font-size:13px;font-weight:500}
@@ -405,7 +434,7 @@ const MLB_RAW=[
  [146,'MIA','马林鱼','迈阿密','Miami Marlins','#00A3E0','国联','东区',1993,'loanDepot 球场',[1997,2003],['吉安卡洛·斯坦顿','何塞·费尔南德斯','米格尔·卡布雷拉'],
   '1993年加入的扩军球队，两次以外卡身份打进季后赛并一路夺冠（1997、2003年）。2012年改名迈阿密马林鱼并启用新球场。'],
  [158,'MIL','酿酒人','密尔沃基','Milwaukee Brewers','#12284B','国联','中区',1969,'美国家庭球场',[],['罗宾·扬特','保罗·莫利特','莱恩·布劳恩'],
-  '1969年以西雅图领航员之名建队，第二年迁到密尔沃基。1998年从美国联盟转入国家联盟。1982年曾打进世界大赛。'],
+  '1969年以西雅图领航员之名建队，第二年迁到密尔沃基。1998年从美国联盟转入国家联盟。1982年曾打进世界大赛，2026年第二次打进世界大赛。'],
  [142,'MIN','双城','明尼阿波利斯','Minnesota Twins','#002B5C','美联','中区',1901,'标靶球场',[1924,1987,1991],['哈蒙·基利布鲁','柯比·帕基特','罗德·卡鲁','乔·莫尔'],
   '前身是华盛顿参议员队，1924年在华盛顿夺冠，1961年迁至明尼苏达。1987、1991年两次夺冠，两届世界大赛都是主场全胜。'],
  [121,'NYM','大都会','纽约','New York Mets','#002D72','国联','东区',1962,'花旗球场',[1969,1986],['汤姆·西佛','麦克·皮亚萨','戴维·赖特','达里尔·斯特劳贝里'],
@@ -427,7 +456,7 @@ const MLB_RAW=[
  [138,'STL','红雀','圣路易','St. Louis Cardinals','#C41E3A','国联','中区',1882,'布希球场',[1926,1931,1934,1942,1944,1946,1964,1967,1982,2006,2011],['斯坦·穆休','鲍勃·吉布森','奥兹·史密斯','阿尔伯特·普霍斯'],
   '共拿下11座世界大赛冠军，是国家联盟夺冠最多的球队。圣路易被认为是美国最懂棒球的城市之一。'],
  [139,'TB','光芒','坦帕湾','Tampa Bay Rays','#092C5C','美联','东区',1998,'纯品康纳球场',[],['伊凡·隆戈里亚','卡尔·克劳福德'],
-  '1998年加入的扩军球队，2008年由“魔鬼鱼”改名“光芒”，当年就打进世界大赛，2020年再次打进。以低薪资、高效率的球队运营著称。'],
+  '1998年加入的扩军球队，2008年由“魔鬼鱼”改名“光芒”，当年就打进世界大赛，2020年再次打进，2026年第三次打进。以低薪资、高效率的球队运营著称。'],
  [140,'TEX','游骑兵','阿灵顿','Texas Rangers','#003278','美联','西区',1961,'环球人寿球场',[2023],['诺兰·莱恩','伊凡·罗德里格斯','麦克·杨','阿德里安·贝尔特雷'],
   '前身是1961年成立的第二代华盛顿参议员，1972年迁到德州。2023年击败响尾蛇，拿下队史首座世界大赛冠军。'],
  [141,'TOR','蓝鸟','多伦多','Toronto Blue Jays','#134A8E','美联','东区',1977,'罗杰斯中心',[1992,1993],['罗伯托·阿洛马','罗伊·哈勒戴','何塞·包蒂斯塔','卡洛斯·德尔加多'],
@@ -439,6 +468,7 @@ const MLB={},ID2AB={};
 MLB_RAW.forEach(([id,ab,n,city,en,c,lg,div,y,park,ws,leg,intro])=>{MLB[ab]={id,ab,n,city,en,c,lg,div,y,park,ws,leg,intro,s:ab,league:'MLB'};ID2AB[id]=ab;});
 const DIVS=[['美联','东区'],['美联','中区'],['美联','西区'],['国联','东区'],['国联','中区'],['国联','西区']];
 const DIV_ID={201:'美联东区',202:'美联中区',200:'美联西区',204:'国联东区',205:'国联中区',203:'国联西区'};
+const DIV_ORDER=['美联东区','美联中区','美联西区','国联东区','国联中区','国联西区'];
 
 /* other leagues: example content only */
 const OTHER={
@@ -472,7 +502,7 @@ const SEASON=TODAY.getMonth()<2?TODAY.getFullYear()-1:TODAY.getFullYear();
 
 /* ---------- live MLB data (statsapi.mlb.com) ---------- */
 const API='https://statsapi.mlb.com/api';
-const Live={state:'loading',games:null,standings:null,leaders:null,roster:{},coaches:{},feed:{},records:{},player:{}};
+const Live={post:null,state:'loading',games:null,standings:null,leaders:null,roster:{},coaches:{},feed:{},records:{},player:{}};
 async function api(path,ms=8000){
   const ctl=new AbortController(),t=setTimeout(()=>ctl.abort(),ms);
   try{const r=await fetch(API+path,{signal:ctl.signal});if(!r.ok)throw new Error(r.status);return await r.json();}
@@ -505,7 +535,7 @@ async function loadStandings(){
   const d=await api(`/v1/standings?leagueId=103,104&season=${SEASON}&standingsTypes=regularSeason`);
   Live.standings=(d.records||[]).map(r=>[DIV_ID[r.division.id]||'',r.teamRecords.map(t=>{
     const ab=ID2AB[t.team.id];Live.records[ab]={w:t.wins,l:t.losses,rank:t.divisionRank,gb:t.gamesBack};
-    return [ab,t.wins,t.losses,t.gamesBack];})]).filter(r=>r[0]).sort((a,b)=>Object.values(DIV_ID).indexOf(a[0])-Object.values(DIV_ID).indexOf(b[0]));
+    return [ab,t.wins,t.losses,t.gamesBack];})]).filter(r=>r[0]).sort((a,b)=>DIV_ORDER.indexOf(a[0])-DIV_ORDER.indexOf(b[0]));
 }
 async function loadLeaders(){
   const q=(cats,grp)=>api(`/v1/stats/leaders?leaderCategories=${cats}&statGroup=${grp}&season=${SEASON}&sportId=1&limit=5`);
@@ -520,7 +550,8 @@ async function loadTeamExtra(ab){
     api(`/v1/teams/${id}/roster?rosterType=active&season=${SEASON}`).catch(()=>null),
     api(`/v1/teams/${id}/coaches?season=${SEASON}`).catch(()=>null)]);
   if(r)Live.roster[ab]=(r.roster||[]).map(p=>({id:p.person.id,n:p.person.fullName,no:p.jerseyNumber,pos:p.position.abbreviation,type:p.position.type}));
-  if(c)Live.coaches[ab]=(c.roster||[]).map(p=>({n:p.person.fullName,no:p.jerseyNumber,job:p.job}));
+  if(c){const seen=new Set();Live.coaches[ab]=(c.roster||[]).map(p=>({n:p.person.fullName,no:p.jerseyNumber,job:p.job}))
+    .filter(x=>{const k=x.n+'|'+x.job;if(seen.has(k))return false;seen.add(k);return true;});}
   if(!r&&!c)throw new Error('team');
 }
 async function loadFeed(pk){
@@ -533,10 +564,10 @@ async function boot(){
   catch(e){Live.state='off';}
   render();
   if(Live.state!=='ok')return;
-  Promise.all([loadStandings().catch(()=>{}),loadLeaders().catch(()=>{})]).then(()=>{if(S.tab==='stats')render();refreshSheet();});
+  Promise.all([loadStandings().catch(()=>{}),loadLeaders().catch(()=>{}),loadPost().catch(()=>{Live.post=[];})]).then(()=>{if(S.tab==='stats'||S.tab==='home')render();refreshSheet();});
   setInterval(async()=>{
     if(!Live.games||!Live.games.some(g=>g.status==='live'))return;
-    try{await loadSchedule();}catch(e){return;}
+    try{await loadSchedule();await loadPost().catch(()=>{});}catch(e){return;}
     Live.games.forEach(g=>{
       document.querySelectorAll(`[data-gcard="${g.id}"]`).forEach(el=>el.outerHTML=gameCard(g));
       document.querySelectorAll(`[data-gmini="${g.id}"]`).forEach(el=>el.outerHTML=miniCard(g));});
@@ -573,7 +604,7 @@ const OTHER_GAMES=[
  {id:'n3x',day:3,lg:'NPB',stage:'日本大赛 第3场',venue:'甲子园球场',time:'18:30',status:'pre',a:{t:'SBH'},h:{t:'HAN'}}
 ];
 const allGames=()=>[...(Live.state==='ok'?Live.games:SAMPLE_GAMES),...OTHER_GAMES];
-const G=id=>allGames().find(g=>g.id===id);
+const G=id=>allGames().find(g=>g.id===id)||postGames().find(g=>g.id===id);
 const runs=s=>s.r!=null?s.r:(s.ln?sum(s.ln):0);
 const hasScore=g=>g.status!=='pre';
 function statusText(g){
@@ -630,7 +661,7 @@ const POSTS=[
 const CIRCLES=['LAD','NYY','TOR','BOS','CHC','SF','SEA','STL'];
 
 /* ---------- state ---------- */
-const S={tab:'home',ch:'头条',day:0,lg:'全部',slg:'MLB',sview:'table',sheet:null};
+const S={tab:'home',ch:'头条',day:0,lg:'全部',slg:'MLB',sview:[9,10].includes(new Date().getMonth())?'post':'table',sheet:null};
 let follows=store.get('follows',['LAD','TOR']).filter(team);
 let liked=new Set(store.get('liked',[]));
 let theme=store.get('theme','system');
@@ -693,6 +724,7 @@ function viewHome(){
    <nav class="channels" role="tablist">${CHANNELS.map(c=>`<button role="tab" aria-selected="${c===S.ch}" data-ch="${c}">${c}</button>`).join('')}</nav>`;
   const list=NEWS.filter(n=>n.ch.includes(S.ch));
   let main='<div class="wrap">';
+  if(S.ch==='头条'||S.ch==='MLB')main+=wsBanner();
   if(S.ch==='头条'||S.ch==='MLB'){
     let today=allGames().filter(g=>g.day===0&&(S.ch==='头条'||g.lg==='MLB'));
     today.sort((a,b)=>(a.status==='live'?0:a.status==='pre'?1:2)-(b.status==='live'?0:b.status==='pre'?1:2));
@@ -740,11 +772,12 @@ function viewStats(){
   const mast=`<div class="mast-top"><h1>数据</h1>${srcChip()}</div>
    <div class="chips" style="padding-bottom:12px">${LEAGUES.map(l=>`<button class="chip" aria-pressed="${l===S.slg}" data-slg="${l}">${esc(LG_NAME[l])}</button>`).join('')}</div>`;
   const isMLB=S.slg==='MLB',live=isMLB&&Live.state==='ok';
-  const views=isMLB?[['table','积分榜'],['lead','球员榜'],['teams','球队']]:[['table','积分榜']];
+  const views=isMLB?[['post','季后赛'],['table','积分榜'],['lead','球员榜'],['teams','球队']]:[['table','积分榜']];
   if(!isMLB)S.sview='table';
   let main=`<div class="wrap"><section class="panel"><div class="seg">${views.map(([k,v])=>`<button aria-pressed="${S.sview===k}" data-sview="${k}">${v}</button>`).join('')}</div>`;
-  if(isMLB&&!live&&S.sview!=='teams')main+=offNote(S.sview==='table'?'积分榜':'球员榜');
-  if(S.sview==='table'){
+  if(isMLB&&!live&&S.sview!=='teams'&&S.sview!=='post')main+=offNote(S.sview==='table'?'积分榜':'球员榜');
+  if(S.sview==='post')main+=bracketHTML();
+  else if(S.sview==='table'){
     if(live&&Live.standings)Live.standings.forEach(([d,rows])=>main+=standingsTable(d,rows,true));
     else if(live)main+='<div class="empty">正在读取积分榜…</div>';
     else SAMPLE_STANDINGS[S.slg].forEach(([d,rows])=>main+=standingsTable(d,rows,false));
@@ -881,6 +914,86 @@ function sheetSearch(q){
   return r;
 }
 
+
+
+/* ---------- postseason bracket ---------- */
+const ROUNDS=[['W','世界大赛','七战四胜'],['L','联盟冠军赛','七战四胜'],['D','分区系列赛','五战三胜'],['F','外卡系列赛','三战两胜']];
+const NEED={F:2,D:3,L:4,W:4};
+async function loadPost(){
+  const d=await api(`/v1/schedule/postseason?season=${SEASON}&sportId=1&hydrate=linescore`);
+  const games=[];
+  (d.dates||[]).forEach(day=>day.games.forEach(x=>{
+    if(ID2AB[x.teams.away.team.id]&&ID2AB[x.teams.home.team.id]&&/^[FDLW]$/.test(x.gameType))
+      games.push(Object.assign(mapGame(x),{gt:x.gameType,len:x.gamesInSeries}));}));
+  Live.post=buildSeries(games);
+}
+function buildSeries(games){
+  const map={};
+  games.forEach(g=>{
+    const pair=[g.a.t,g.h.t].sort(),k=g.gt+'-'+pair.join('-');
+    const s=map[k]=map[k]||{k,gt:g.gt,teams:pair,wins:{[pair[0]]:0,[pair[1]]:0},games:[],len:0};
+    s.games.push(g);s.len=Math.max(s.len,g.len||0);
+    if(g.status==='final'){const ra=runs(g.a),rh=runs(g.h);if(ra!==rh)s.wins[ra>rh?g.a.t:g.h.t]++;}
+  });
+  return Object.values(map).map(s=>{
+    s.need=s.len?Math.floor(s.len/2)+1:NEED[s.gt];
+    s.winner=s.teams.find(t=>s.wins[t]>=s.need)||null;
+    s.lg=s.gt==='W'?'':MLB[s.teams[0]].lg;
+    s.games.sort((a,b)=>a.day-b.day||a.time.localeCompare(b.time));
+    return s;
+  });
+}
+// 2025 postseason, shown when official data can't be reached
+const SAMPLE_POST=[['W','LAD','TOR',4,3],['L','TOR','SEA',4,3],['L','LAD','MIL',4,0],['D','TOR','NYY',3,1],['D','SEA','DET',3,2],['D','LAD','PHI',3,1],['D','MIL','CHC',3,2],
+  ['F','NYY','BOS',2,1],['F','DET','CLE',2,1],['F','LAD','CIN',2,0],['F','CHC','SD',2,1]]
+  .map(([gt,w,l,ww,lw])=>({k:'s-'+gt+w,gt,teams:[w,l],wins:{[w]:ww,[l]:lw},winner:w,need:NEED[gt],lg:gt==='W'?'':MLB[w].lg,games:[],sample:1}));
+const postList=()=>Live.state==='ok'?Live.post:SAMPLE_POST;
+const postGames=()=>(Live.post||[]).flatMap(s=>s.games);
+function seriesStatus(s){
+  if(s.winner)return {cls:'done',t:s.gt==='W'?`${team(s.winner).n} 夺得世界大赛冠军`:`${team(s.winner).n} 晋级`};
+  if(s.games.some(g=>g.status==='live'))return {cls:'on',t:'比赛进行中'};
+  const a=s.wins[s.teams[0]],b=s.wins[s.teams[1]];
+  if(a||b){const lead=a===b?'':team(a>b?s.teams[0]:s.teams[1]).n+' 领先';return {cls:'on',t:a===b?`战成 ${a}-${b}`:`${lead} ${Math.max(a,b)}-${Math.min(a,b)}`};}
+  const next=s.games.find(g=>g.status==='pre');
+  return {cls:'',t:next?`${dayLabel(next.day).num} ${next.time} 开打`:'未开始'};
+}
+function seriesCard(s,big){
+  const order=s.teams.slice().sort((a,b)=>s.wins[b]-s.wins[a]),st=seriesStatus(s);
+  const row=t=>`<div class="sr${s.winner&&s.winner!==t?' lose':''}">${logo(t,big?'md':'')}<span>${esc(team(t).n)}</span><b>${s.wins[t]}</b></div>`;
+  const tag=s.games.length?'button':'div';
+  return `<${tag} class="series${big?' big':''}" ${s.games.length?`data-series="${s.k}"`:''}>${row(order[0])}${row(order[1])}<small class="${st.cls}">${esc(st.t)}</small></${tag}>`;
+}
+function bracketHTML(){
+  const list=postList();
+  if(!list)return '<div class="empty">正在读取季后赛对阵…</div>';
+  if(!list.length)return `<div class="empty">${SEASON} 赛季季后赛还没开始</div>`;
+  let h=Live.state==='ok'?'':`<div class="notice"><span>当前无法连接 MLB 官方数据，下面是 <b>2025 年季后赛回顾</b>。部署到普通网页后会显示当季对阵。</span></div>`;
+  ROUNDS.forEach(([gt,name,fmt])=>{
+    const ss=list.filter(s=>s.gt===gt);if(!ss.length)return;
+    h+=`<div class="round-h"><b>${name}</b><small>${fmt}</small></div>`;
+    if(gt==='W'){
+      const s=ss[0];
+      h+=`<div style="padding:0 14px 10px">${seriesCard(s,true)}</div>`;
+      if(s.games.length)h+=`<div class="wsg">${s.games.map(g=>`<button data-game="${g.id}">G${s.games.indexOf(g)+1}${g.status==='pre'?` <span>${dayLabel(g.day).num}</span>`:` <b>${runs(g.a)}-${runs(g.h)}</b>`}</button>`).join('')}</div>`;
+    }else{
+      h+=`<div class="bcols">${['美联','国联'].map(lg=>`<div class="bcol"><h4>${lg}</h4>${ss.filter(s=>s.lg===lg).map(s=>seriesCard(s)).join('')||'<small style="color:var(--faint)">—</small>'}</div>`).join('')}</div>`;
+    }
+  });
+  return h+`<div class="note">点击对阵查看每场比赛。${Live.state==='ok'?`数据来源：MLB 官方 · ${SEASON} 季后赛`:'2025 年季后赛结果'}</div>`;
+}
+function wsBanner(){
+  const s=(postList()||[]).find(x=>x.gt==='W');if(!s)return '';
+  const [a,b]=s.teams,st=seriesStatus(s);
+  return `<section class="panel"><button class="wsbar" data-act="bracket"><span class="eyebrow">${s.sample?'2025 ':''}世界大赛</span><div>${logo(a)}${esc(team(a).n)}<b>${s.wins[a]}-${s.wins[b]}</b>${esc(team(b).n)}${logo(b)}</div>${I.back}</button><div class="ai-meta" style="margin-top:-6px">${esc(st.t)} · 点击查看季后赛对阵</div></section>`;
+}
+function sheetSeries(k){
+  const s=(postList()||[]).find(x=>x.k===k);
+  if(!s)return `<div class="sheet-h dark">${backBtn}<b>季后赛</b><span class="side"></span></div><div class="empty">没有找到这组对阵</div>`;
+  const name=ROUNDS.find(r=>r[0]===s.gt)[1];
+  return `<div class="sheet-h dark">${backBtn}<b>${esc((s.lg||'')+name)}</b><span class="side"></span></div>
+    <div class="wrap"><section class="panel" style="padding:14px">${seriesCard(s,true).replace(/<button class="series big"[^>]*>/,'<div class="series big">').replace(/<\/button>$/,'</div>')}</section>
+    <section class="panel">${s.games.map(gameCard).join('')}</section></div>`;
+}
 
 /* ---------- AI 中文战报 (Claude) ---------- */
 // Inside a Claude viewer the page asks Claude on the viewer's own account (sample capability).
@@ -1061,6 +1174,7 @@ function sheetHTML(){
   if(s.kind==='game')return sheetGame(G(s.id));
   if(s.kind==='team')return sheetTeam(s.id,s.tab);
   if(s.kind==='player')return sheetPlayer(s.id);
+  if(s.kind==='series')return sheetSeries(s.id);
 }
 function openSheet(kind,id){
   if(S.sheet&&kind!=='search')SHEET_STACK.push(S.sheet);
@@ -1106,6 +1220,8 @@ document.addEventListener('click',e=>{
   else if(d.teamp){if(S.sheet&&S.sheet.kind==='team'){S.sheet.id=d.teamp;setTeamTab('info');$('#sheet-root .sheet').scrollTop=0;}else openSheet('team',d.teamp);}
   else if(d.ttab)setTeamTab(d.ttab);
   else if(d.player)openSheet('player',+d.player);
+  else if(d.series)openSheet('series',d.series);
+  else if(d.act==='bracket'){S.tab='stats';S.slg='MLB';S.sview='post';render();window.scrollTo(0,0);}
   else if(d.ai==='recap')runRecap(d.g);
   else if(d.ai==='translate')runTranslate(d.g);
   else if(d.act==='name-reset'){const f=b.closest('[data-name]');delete customNames[normName(f.dataset.name)];store.set('names',customNames);toast('已恢复默认译名');refreshSheet();}
