@@ -335,11 +335,41 @@ td.tm button,td.tm span.t{display:inline-flex;align-items:center;gap:8px}
 .wsg button b{font:600 15px var(--f-num);color:var(--fg)}
 /* player page */
 .phero{position:relative;overflow:hidden;color:var(--on-team);background:linear-gradient(160deg,var(--tc) 0%,var(--tc) 45%,var(--mast-2) 150%);
-  padding:6px max(16px,env(safe-area-inset-right,0px)) 18px max(16px,env(safe-area-inset-left,0px));display:flex;align-items:center;gap:14px}
+  padding:6px max(16px,env(safe-area-inset-right,0px)) 18px max(16px,env(safe-area-inset-left,0px));display:grid;gap:14px}
 .phero .seam{position:absolute;right:-20%;top:-20%;width:65%;aspect-ratio:1;opacity:.1}
 .pshot{position:relative;flex:none;width:78px;height:78px;border-radius:50%;overflow:hidden;display:grid;place-items:center;background:rgba(255,255,255,.14);
   box-shadow:inset 0 0 0 2px rgba(255,255,255,.3);font:900 28px var(--f-display)}
 .pshot img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:var(--soft)}
+.phero-top{position:relative;display:flex;align-items:center;gap:14px}
+.phero .sub{position:relative;font-size:13px;opacity:.85}
+.pbar{position:relative;display:grid;grid-template-columns:repeat(3,1fr);background:rgba(0,0,0,.18);border-radius:10px;padding:10px 4px}
+.pbar div{display:grid;justify-items:center;gap:2px;font-size:11px;opacity:.9;text-align:center;padding:0 4px;min-width:0}
+.pbar div+div{border-left:1px solid rgba(255,255,255,.18)}
+.pbar b{font-size:15px;font-weight:500;opacity:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
+.form{display:inline-flex;gap:3px}
+.form i{font-style:normal;font-size:12px;font-weight:700}
+.form .w{color:#7ee2a4}.form .l{color:#ff9aa6}
+.radar{display:block;width:100%;max-width:340px;margin:0 auto}
+.overall{display:flex;align-items:baseline;justify-content:center;gap:10px;padding:14px 14px 0;font:900 18px var(--f-display);color:var(--muted)}
+.overall b{font:700 40px var(--f-num);color:var(--red)}
+.traits{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;padding:6px 14px 14px;font-size:15px}
+.traits span{display:flex;align-items:center;gap:8px}
+.traits em{font-style:normal;font-size:11px;padding:2px 5px;border-radius:3px;color:var(--on-team);background:var(--red)}
+.traits em.weak{background:var(--brand)}
+.tx{display:flex;align-items:center;gap:10px;padding:11px 14px;border-top:1px solid var(--line);font-size:14px}
+.tx-d{flex:none;width:76px;display:grid}
+.tx-d b{font:600 16px var(--f-num);color:var(--muted)}
+.tx-d small{font-size:11px;color:var(--faint)}
+.tx-t{flex:1;min-width:0;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:6px}
+.tx-t span{display:flex;align-items:center;gap:6px;min-width:0;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.tx-t span:first-child{justify-content:flex-end}
+.tx-t i{font-style:normal;color:#2e9d5b;font-weight:700}
+.span-row{display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid var(--line);font-size:14px}
+.span-row>div{flex:1;min-width:0;display:grid}
+.span-row small{font-size:12px;color:var(--faint)}
+.span-row b{width:44px;text-align:right;font:600 17px var(--f-num)}
+.span-h{display:flex;justify-content:flex-end;gap:0;padding:4px 14px 0;font-size:11px;color:var(--faint)}
+.span-h span{width:54px;text-align:right}
 .phero div.pinfo{position:relative;display:grid;gap:3px;min-width:0}
 .phero h2{margin:0;font:900 25px/1.2 var(--f-display);letter-spacing:.03em}
 .phero small{font-size:12px;opacity:.8}
@@ -502,7 +532,7 @@ const SEASON=TODAY.getMonth()<2?TODAY.getFullYear()-1:TODAY.getFullYear();
 
 /* ---------- live MLB data (statsapi.mlb.com) ---------- */
 const API='https://statsapi.mlb.com/api';
-const Live={post:null,state:'loading',games:null,standings:null,leaders:null,roster:{},coaches:{},feed:{},records:{},player:{}};
+const Live={teamSched:{},post:null,state:'loading',games:null,standings:null,leaders:null,roster:{},coaches:{},feed:{},records:{},player:{}};
 async function api(path,ms=8000){
   const ctl=new AbortController(),t=setTimeout(()=>ctl.abort(),ms);
   try{const r=await fetch(API+path,{signal:ctl.signal});if(!r.ok)throw new Error(r.status);return await r.json();}
@@ -543,6 +573,15 @@ async function loadLeaders(){
   const name={homeRuns:['全垒打','HR'],battingAverage:['打击率','AVG'],runsBattedIn:['打点','RBI'],earnedRunAverage:['防御率','ERA'],strikeouts:['三振','SO']};
   Live.leaders=[...(h.leagueLeaders||[]),...(p.leagueLeaders||[])].filter(c=>name[c.leaderCategory]).map(c=>[name[c.leaderCategory][0],name[c.leaderCategory][1],
     (c.leaders||[]).slice(0,5).map(l=>[l.person.fullName,ID2AB[l.team&&l.team.id],l.value,l.person.id])]);
+}
+async function loadTeamSched(ab){
+  const d=await api(`/v1/schedule?sportId=1&teamId=${MLB[ab].id}&startDate=${ymd(dateAt(-40))}&endDate=${ymd(dateAt(20))}&hydrate=linescore,probablePitcher`);
+  const out=[];(d.dates||[]).forEach(day=>day.games.forEach(x=>{if(ID2AB[x.teams.away.team.id]&&ID2AB[x.teams.home.team.id])out.push(mapGame(x));}));
+  Live.teamSched[ab]=out.sort((a,b)=>a.day-b.day||a.time.localeCompare(b.time));
+}
+function teamForm(ab){
+  const fin=(Live.teamSched[ab]||[]).filter(g=>g.status==='final'&&runs(g.a)!==runs(g.h)).slice(-5);
+  return fin.map(g=>{const mine=g.a.t===ab?g.a:g.h,opp=g.a.t===ab?g.h:g.a;return runs(mine)>runs(opp)?'w':'l';});
 }
 async function loadTeamExtra(ab){
   const id=MLB[ab].id;
@@ -871,18 +910,25 @@ const JOB_CN={'Manager':'总教练','Bench Coach':'板凳教练','Hitting Coach'
   'Bullpen Coach':'牛棚教练','First Base Coach':'一垒指导教练','Third Base Coach':'三垒指导教练','Bullpen Catcher':'牛棚捕手','Major League Coach':'大联盟教练','Associate Manager':'副总教练','Field Coordinator':'场务协调','Quality Control Coach':'品质控管教练','Game Planning Coach':'比赛规划教练','Catching Coach':'捕手教练','Infield Coach':'内野教练','Outfield Coach':'外野教练'};
 function sheetTeam(ab,tab){
   const t=MLB[ab],on=follows.includes(ab),rec=Live.records[ab];
-  const ws=t.ws.length,age=SEASON-t.y+1;
+  const ws=t.ws.length,form=teamForm(ab);
   const tc=`style="--tc:${t.c}"`;
   let h=`<div class="sheet-h team" ${tc}>${backBtn}<b>${esc(t.n)}</b><span class="side"></span></div>
    <div class="thero" ${tc}>${I.seam}<div class="thero-main">${logo(ab,'xl')}<div><h2>${esc(t.city)}${esc(t.n)}</h2><small>${esc(t.en.toUpperCase())}</small><small>${esc(t.lg)}${esc(t.div)}</small></div></div>
-   <div class="thero-stats"><div><b>${ws}</b>世界大赛冠军</div><div><b>${t.y}</b>建队年份</div><div><b>${age}</b>个赛季</div><div><b>${rec?`${rec.w}-${rec.l}`:'—'}</b>${rec?`${SEASON} 战绩`:'本季战绩'}</div></div>
+   <div class="thero-stats"><div><b>${rec&&rec.rank?'第'+rec.rank:'—'}</b>${esc(t.lg+t.div)}排名</div><div><b>${rec?`${rec.w}-${rec.l}`:'—'}</b>${rec?`${SEASON} 战绩`:'本季战绩'}</div>
+     <div><b class="form" style="font-size:13px;line-height:23px">${form.length?form.map(r=>`<i class="${r}">${r==='w'?'胜':'负'}</i>`).join(''):'—'}</b>最近 ${form.length||5} 场</div><div><b>${ws}</b>世界大赛冠军</div></div>
    <button class="follow" data-follow="${ab}" aria-pressed="${on}">${on?'已关注':'+ 关注'}</button></div>
    <nav class="ttabs" role="tablist" ${tc}>${[['info','简介'],['history','历史'],['coaches','教练'],['roster','球员']].map(([k,v])=>`<button role="tab" aria-selected="${tab===k}" data-ttab="${k}">${v}</button>`).join('')}</nav><div class="wrap">`;
   if(tab==='info'){
     h+=`<section class="panel"><div class="sec-h">球队简介</div><p class="prose">${esc(t.intro)}</p></section>
      <section class="panel"><div class="sec-h">基本信息</div><dl class="kv"><dt>所在城市</dt><dd>${esc(t.city)}</dd><dt>所属分区</dt><dd>${esc(t.lg)}${esc(t.div)}</dd><dt>主场</dt><dd>${esc(t.park)}</dd><dt>首个大联盟赛季</dt><dd>${t.y} 年</dd><dt>世界大赛冠军</dt><dd>${ws?ws+' 次':'暂无'}</dd>${t.ws.length?`<dt>最近一次夺冠</dt><dd>${t.ws[t.ws.length-1]} 年</dd>`:''}</dl></section>`;
-    const games=(Live.state==='ok'?Live.games:SAMPLE_GAMES).filter(g=>g.a.t===ab||g.h.t===ab);
-    if(games.length)h+=`<section class="panel"><div class="sec-h">近期比赛<small>${Live.state==='ok'?'官方数据':'示例'}</small></div>${games.map(gameCard).join('')}</section>`;
+    const sched=Live.teamSched[ab];
+    if(sched){
+      const last=sched.filter(g=>g.status==='final').slice(-1),next=sched.filter(g=>g.status!=='final').slice(0,2);
+      if(last.length||next.length)h=h.replace('<div class="wrap">',`<div class="wrap"><section class="panel"><div class="sec-h">赛程<small>MLB 官方数据</small></div>${[...last,...next].map(gameCard).join('')}</section>`);
+    }else{
+      const games=(Live.state==='ok'?Live.games:SAMPLE_GAMES).filter(g=>g.a.t===ab||g.h.t===ab);
+      if(games.length)h+=`<section class="panel"><div class="sec-h">近期比赛<small>${Live.state==='ok'?'官方数据':'示例'}</small></div>${games.map(gameCard).join('')}</section>`;
+    }
   }else if(tab==='history'){
     h+=`<section class="panel"><div class="sec-h">世界大赛冠军<small>${ws} 次 · 截至2025赛季</small></div>${ws?`<div class="titles">${t.ws.map(y=>`<span>${y}</span>`).join('')}</div>`:'<div class="empty">还没有拿过世界大赛冠军</div>'}</section>
      <section class="panel"><div class="sec-h">队史传奇</div>${t.leg.map((p,i)=>`<div class="legend"><span class="no">${pad(i+1)}</span>${esc(p)}</div>`).join('')}</section>
@@ -1121,56 +1167,138 @@ async function loadPlayer(id){
     else{const sp=x.splits&&x.splits[0];if(sp)st[g+'_'+t]=sp.stat;}});
   const pos=p.primaryPosition&&p.primaryPosition.abbreviation;
   const grp=pos==='P'||(!years.hitting&&years.pitching)?'pitching':'hitting',coach=PH[id]&&PH[id].job;
-  const lg=coach?null:await api(`/v1/people/${id}/stats?stats=gameLog&group=${grp}&season=${SEASON}`).catch(()=>null);
+  const [lg,tx]=await Promise.all([coach?null:api(`/v1/people/${id}/stats?stats=gameLog&group=${grp}&season=${SEASON}`).catch(()=>null),
+    api(`/v1/transactions?playerId=${id}`).catch(()=>null)]);
   const log=((lg&&lg.stats&&lg.stats[0]&&lg.stats[0].splits)||[]).slice(-10).reverse();
-  Live.player[id]={p,st,grp,log,years};
+  Live.player[id]={p,st,grp,log,years,tx:(tx&&tx.transactions)||[]};
   hint(id,p.fullName,p.currentTeam&&ID2AB[p.currentTeam.id]);
 }
 function heightCm(h){const m=String(h||'').match(/(\d+)'\s*(\d+)/);return m?Math.round((+m[1]*12+ +m[2])*2.54)+' 厘米':'';}
 const HIT=[['avg','打击率'],['homeRuns','全垒打'],['rbi','打点'],['ops','OPS'],['hits','安打'],['obp','上垒率'],['stolenBases','盗垒'],['gamesPlayed','出赛']];
 const PIT=[['era','防御率'],['wins','胜'],['losses','负'],['strikeOuts','三振'],['inningsPitched','局数'],['whip','WHIP'],['saves','救援'],['gamesPlayed','出赛']];
 function tiles(stat,defs){return `<div class="tiles">${defs.map(([k,v])=>`<div><b>${esc(stat[k]!=null?stat[k]:'—')}</b>${v}</div>`).join('')}</div>`;}
-function sheetPlayer(id){
+const ipNum=x=>{const [a,b]=String(x||'0').split('.');return (+a||0)+(+b||0)/3;};
+const lin=(v,lo,hi)=>Math.round(40+59*Math.max(0,Math.min(1,(v-lo)/(hi-lo))));
+// Ratings are this page's own conversion of season stats onto a 40-99 scale, not an official rating.
+function ratingsFor(gp,st){
+  const n=x=>parseFloat(x)||0;
+  if(!st)return null;
+  if(gp==='hitting'){
+    if(n(st.atBats)<60)return {few:1};
+    const avg=n(st.avg),iso=n(st.slg)-avg,bbk=n(st.baseOnBalls)/Math.max(1,n(st.strikeOuts));
+    return {axes:[['打击',lin(avg,.200,.320)],['力量',lin(iso,.080,.300)],['上垒',lin(n(st.obp),.270,.420)],['速度',lin(n(st.stolenBases),0,40)],['选球',lin(bbk,.15,1)],['出赛',lin(n(st.gamesPlayed),30,160)]]};
+  }
+  const ip=ipNum(st.inningsPitched);if(ip<15)return {few:1};
+  const k9=n(st.strikeOuts)*9/ip,bb9=n(st.baseOnBalls)*9/ip,hr9=n(st.homeRuns)*9/ip;
+  return {axes:[['压制',lin(5.5-n(st.era),0,3.5)],['三振',lin(k9,6,12.5)],['控球',lin(4.5-bb9,0,3.2)],['WHIP',lin(1.55-n(st.whip),0,.65)],['防全垒打',lin(1.8-hr9,0,1.3)],['耐投',lin(ip,30,200)]]};
+}
+function radarSVG(axes){
+  const cx=170,cy=150,R=92,N=axes.length,pt=(i,r)=>{const a=-Math.PI/2+i*2*Math.PI/N;return [cx+r*Math.cos(a),cy+r*Math.sin(a)];};
+  const ring=f=>axes.map((_,i)=>pt(i,R*f).map(v=>v.toFixed(1)).join(',')).join(' ');
+  const shape=axes.map(([,v],i)=>pt(i,R*(v-20)/80).map(v=>v.toFixed(1)).join(',')).join(' ');
+  const lab=axes.map(([k,v],i)=>{const [x,y]=pt(i,R+30),anchor=Math.abs(x-cx)<5?'middle':x>cx?'start':'end';
+    return `<text x="${x.toFixed(1)}" y="${(y-3).toFixed(1)}" text-anchor="${anchor}" font-size="13" fill="var(--muted)">${k}</text><text x="${x.toFixed(1)}" y="${(y+14).toFixed(1)}" text-anchor="${anchor}" font-size="15" font-weight="700" fill="${v>=85?'var(--red)':v>=70?'var(--gold)':'var(--muted)'}">${v}</text>`;}).join('');
+  return `<svg class="radar" viewBox="0 0 340 300" role="img" aria-label="能力雷达图">${[1,.75,.5,.25].map(f=>`<polygon points="${ring(f)}" fill="none" stroke="var(--line)" stroke-width="1"/>`).join('')}
+    ${axes.map((_,i)=>{const [x,y]=pt(i,R);return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--line)"/>`;}).join('')}
+    <polygon points="${shape}" fill="var(--brand)" fill-opacity=".28" stroke="var(--brand)" stroke-width="2"/>${axes.map(([,v],i)=>{const [x,y]=pt(i,R*(v-20)/80);return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.5" fill="var(--brand)"/>`;}).join('')}${lab}</svg>`;
+}
+const TX_CN={TR:'交易',SFA:'自由球员签约',CLW:'被认领',SGN:'签约',DR:'选秀'};
+const tName=tm=>tm?(ID2AB[tm.id]?logo(ID2AB[tm.id])+`<span>${esc(team(ID2AB[tm.id]).n)}</span>`:`<span>${esc(tm.name)}</span>`):'';
+function txHTML(L){
+  const rows=(L.tx||[]).filter(x=>TX_CN[x.typeCode]&&x.toTeam&&!(x.fromTeam&&x.fromTeam.id===x.toTeam.id)&&(x.typeCode!=='SGN'||!x.fromTeam))
+    .sort((a,b)=>(b.date||'').localeCompare(a.date||'')).slice(0,15);
+  if(!rows.length)return '';
+  return `<section class="panel"><div class="sec-h">交易记录<small>MLB 官方数据</small></div>${rows.map(x=>`<div class="tx"><div class="tx-d"><b>${esc((x.date||'').slice(0,7).replace('-','.'))}</b><small>${TX_CN[x.typeCode]}</small></div>
+    <div class="tx-t"><span>${x.fromTeam?tName(x.fromTeam):`<span style="color:var(--faint)">${TX_CN[x.typeCode]}</span>`}</span><i>→</i><span>${tName(x.toTeam)}</span></div></div>`).join('')}</section>`;
+}
+function spansHTML(L,gp){
+  const out=[];
+  ((L.years&&L.years[gp])||[]).forEach(y=>{if(!y.team)return;const last=out[out.length-1];
+    if(last&&last.id===y.team.id&&+y.season-+last.to<=1){last.to=y.season;last.rows.push(y.stat);}
+    else out.push({id:y.team.id,name:y.team.name,from:y.season,to:y.season,rows:[y.stat]});});
+  if(!out.length)return '';
+  const cols=gp==='pitching'?[['gamesPlayed','出赛'],['wins','胜'],['strikeOuts','三振']]:[['gamesPlayed','出赛'],['homeRuns','全垒打'],['rbi','打点']];
+  const sumc=(rows,k)=>rows.reduce((a,r)=>a+(+r[k]||0),0);
+  return `<section class="panel"><div class="sec-h">球队生涯</div><div class="span-h">${cols.map(c=>`<span>${c[1]}</span>`).join('')}</div>${out.reverse().map(sp=>{const ab2=ID2AB[sp.id];
+    return `<div class="span-row">${ab2?logo(ab2,'md'):'<span class="logo md" style="--tc:var(--faint)">—</span>'}<div><span>${esc(ab2?team(ab2).n:sp.name)}</span><small>${sp.from===sp.to?sp.from:sp.from+' – '+(sp.to==SEASON?'至今':sp.to)}</small></div>${cols.map(c=>`<b style="width:54px">${sumc(sp.rows,c[0])}</b>`).join('')}</div>`;}).join('')}</section>`;
+}
+function yearsHTML(L,gp){
+  const ys=(L.years&&L.years[gp])||[],kind=gp==='pitching'?'投球':'打击';
+  if(!ys.length)return '';
+  const cols=gp==='pitching'?[['gamesPlayed','出赛'],['era','防御率'],['wins','胜'],['losses','负'],['strikeOuts','三振'],['inningsPitched','局数']]:[['gamesPlayed','出赛'],['avg','打击率'],['homeRuns','全垒打'],['rbi','打点'],['ops','OPS']];
+  return `<section class="panel"><div class="sec-h">历年${kind}<small>${ys[0].season}–${ys[ys.length-1].season} · 共 ${new Set(ys.map(y=>y.season)).size} 季</small></div><div class="tbl-wrap"><table><thead><tr><th>年份</th><th>球队</th>${cols.map(c=>`<th>${c[1]}</th>`).join('')}</tr></thead><tbody>${ys.slice().reverse().map(y=>{
+    const ab2=y.team&&ID2AB[y.team.id],tn=ab2?logo(ab2)+esc(team(ab2).n):esc(y.team?y.team.name:'合计');
+    return `<tr><td>${esc(y.season)}</td><td class="tm"><span class="t">${tn}</span></td>${cols.map(c=>`<td>${esc(y.stat[c[0]]!=null?y.stat[c[0]]:'-')}</td>`).join('')}</tr>`;}).join('')}</tbody></table></div></section>`;
+}
+function headshot(id,initial){
+  const base=`https://img.mlbstatic.com/mlb-photos/image/upload/w_213,q_auto:best/v1/people/${id}/headshot`;
+  return `<div class="pshot">${esc(initial)}<img alt="" src="${base}/67/current" data-alt="${base}/silo/current" onerror="if(this.dataset.alt){this.src=this.dataset.alt;this.dataset.alt=''}else{this.remove()}"></div>`;
+}
+function sheetPlayer(id,tab){
   const L=Live.player[id],hp=PH[id]||{},p=L&&L.p;
   const en=p?p.fullName:hp.n||'',ab=(p&&p.currentTeam&&ID2AB[p.currentTeam.id])||hp.t,t=ab&&team(ab);
   const zh=zhName(en),pos=p&&p.primaryPosition&&p.primaryPosition.abbreviation,job=hp.job;
   const tc=`style="--tc:${t?t.c:'var(--mast)'}"`;
+  const hand=p&&(p.batSide||p.pitchHand)?`${HAND[p.batSide&&p.batSide.code]||'-'}打${HAND[p.pitchHand&&p.pitchHand.code]||'-'}投`:'';
+  const bar=job?[[p&&p.currentAge?p.currentAge+'岁':'—','年龄'],[t?t.n:'—','球队'],[JOB_CN[job]||'教练组','职务']]
+    :[[p&&p.currentAge?p.currentAge+'岁':'—','年龄'],[`${t?t.n:'—'}${p&&p.primaryNumber?' / '+p.primaryNumber+'号':''}`,'球队 / 背号'],[pos?POS_CN[pos]||pos:'—',hand||'位置']];
+  const sub=p?[COUNTRY[p.birthCountry]||p.birthCountry,heightCm(p.height)?'身高 '+heightCm(p.height).replace(' 厘米','cm'):'',p.weight?'体重 '+Math.round(p.weight*0.4536)+'kg':''].filter(Boolean).join(' / '):'';
+  const tabs=job?[['info','资料'],['career','球员经历']]:[['data','数据'],['rating','能力值'],['info','资料']];
+  if(!tabs.some(x=>x[0]===tab))tab=tabs[0][0];
   let h=`<div class="sheet-h team" ${tc}>${backBtn}<b>${esc(zh||en||'球员')}</b><span class="side"></span></div>
-   <div class="phero" ${tc}>${I.seam}<div class="pshot">${esc((zh||en||'?').slice(0,1))}<img alt="" src="https://img.mlbstatic.com/mlb-photos/image/upload/d_people:generic:headshot:67:current.png/w_213,q_auto:best/v1/people/${id}/headshot/67/current" onerror="this.remove()"></div>
-   <div class="pinfo"><h2>${esc(zh||en)}</h2>${zh?`<small>${esc(en)}</small>`:''}<small>${(job?[JOB_CN[job]||job,t?t.n:'']:[p&&p.primaryNumber?'#'+p.primaryNumber:'',pos?POS_CN[pos]||pos:'',t?t.n:'']).filter(Boolean).map(esc).join(' · ')}</small></div></div><div class="wrap">`;
+   <div class="phero" ${tc}>${I.seam}<div class="phero-top">${headshot(id,(zh||en||'?').slice(0,1))}
+   <div class="pinfo"><h2>${esc(zh||en)}</h2>${zh?`<small>${esc(en)}</small>`:''}${sub?`<small>${esc(sub)}</small>`:''}</div></div>
+   <div class="pbar">${bar.map(([v,k])=>`<div><b>${esc(v)}</b>${k}</div>`).join('')}</div></div>
+   <nav class="ttabs" role="tablist" ${tc}>${tabs.map(([k,v])=>`<button role="tab" aria-selected="${tab===k}" data-ptab="${k}">${v}</button>`).join('')}</nav><div class="wrap">`;
   if(!L){
-    if(Live.state!=='ok')h+=`<section class="panel"><div class="empty">球员资料和比赛数据来自 MLB 官方实时数据。<br>当前环境无法连接 statsapi.mlb.com，部署到普通网页后即可显示。</div></section>`;
+    if(Live.state!=='ok')h+=`<section class="panel"><div class="empty">资料和比赛数据来自 MLB 官方实时数据。<br>当前环境无法连接 statsapi.mlb.com，部署到普通网页后即可显示。</div></section>`;
     else h+=`<section class="panel"><div class="empty">${L===null?`没有读到这位${job?'教练':'球员'}的资料`:'正在读取资料…'}</div></section>`;
-  }else{
-    const hand=`${HAND[p.batSide&&p.batSide.code]||'-'}打 / ${HAND[p.pitchHand&&p.pitchHand.code]||'-'}投`;
-    h+=`<section class="panel"><div class="sec-h">基本资料</div><dl class="kv">${p.currentAge?`<dt>年龄</dt><dd>${p.currentAge} 岁</dd>`:''}
-      <dt>出生地</dt><dd>${esc([p.birthCity,COUNTRY[p.birthCountry]||p.birthCountry].filter(Boolean).join('，')||'—')}</dd>
-      <dt>身高 / 体重</dt><dd>${esc([heightCm(p.height),p.weight?Math.round(p.weight*0.4536)+' 公斤':''].filter(Boolean).join(' / ')||'—')}</dd>
-      ${p.batSide||p.pitchHand?`<dt>投打</dt><dd>${hand}</dd>`:''}${p.mlbDebutDate?`<dt>大联盟首秀</dt><dd>${esc(p.mlbDebutDate)}</dd>`:''}</dl></section>`;
-    if(job)h+=`<section class="panel"><div class="sec-h">现任职务</div><dl class="kv"><dt>球队</dt><dd>${t?esc(t.city+t.n):'—'}</dd><dt>职务</dt><dd>${esc(JOB_CN[job]||'教练组')}<br><small style="color:var(--faint)">${esc(job)}</small></dd></dl></section>`;
-    const both=pos==='TWP'?['hitting','pitching']:[L.grp];
-    if(job&&!L.st[L.grp+'_career'])h+=`<section class="panel"><div class="sec-h">球员时代</div><div class="empty">没有大联盟出赛记录</div></section>`;
-    else both.forEach(gp=>{const defs=gp==='pitching'?PIT:HIT,sea=L.st[gp+'_season'],car=L.st[gp+'_career'],kind=gp==='pitching'?'投球':'打击';
-      if(!job)h+=`<section class="panel"><div class="sec-h">${SEASON} 赛季${kind}<small>MLB 官方数据</small></div>${sea?tiles(sea,defs):'<div class="empty">本赛季暂无出赛</div>'}</section>`;
-      if(car)h+=`<section class="panel"><div class="sec-h">${job?'球员时代 · 生涯'+kind:'生涯'+kind}</div>${tiles(car,defs)}</section>`;
-      const ys=(L.years&&L.years[gp])||[];
-      if(ys.length){
-        const cols=gp==='pitching'?[['gamesPlayed','出赛'],['era','防御率'],['wins','胜'],['losses','负'],['strikeOuts','三振'],['inningsPitched','局数']]:[['gamesPlayed','出赛'],['avg','打击率'],['homeRuns','全垒打'],['rbi','打点'],['ops','OPS']];
-        h+=`<section class="panel"><div class="sec-h">历年${kind}<small>${ys[0].season}–${ys[ys.length-1].season} · 共 ${new Set(ys.map(y=>y.season)).size} 季</small></div><div class="tbl-wrap"><table><thead><tr><th>年份</th><th>球队</th>${cols.map(c=>`<th>${c[1]}</th>`).join('')}</tr></thead><tbody>${ys.slice().reverse().map(y=>{
-          const ab2=y.team&&ID2AB[y.team.id],tn=ab2?logo(ab2)+esc(team(ab2).n):esc(y.team?y.team.name:'合计');
-          return `<tr><td>${esc(y.season)}</td><td class="tm"><span class="t">${tn}</span></td>${cols.map(c=>`<td>${esc(y.stat[c[0]]!=null?y.stat[c[0]]:'-')}</td>`).join('')}</tr>`;}).join('')}</tbody></table></div></section>`;
-      }});
+    return h+nameForm(en)+'</div>';
+  }
+  const both=pos==='TWP'?['hitting','pitching']:[L.grp];
+  if(tab==='data'){
+    both.forEach(gp=>{const defs=gp==='pitching'?PIT:HIT,sea=L.st[gp+'_season'],car=L.st[gp+'_career'],kind=gp==='pitching'?'投球':'打击';
+      h+=`<section class="panel"><div class="sec-h">${SEASON} 赛季${kind}<small>MLB 官方数据</small></div>${sea?tiles(sea,defs):'<div class="empty">本赛季暂无出赛</div>'}</section>`;
+      if(car)h+=`<section class="panel"><div class="sec-h">生涯${kind}</div>${tiles(car,defs)}</section>`;});
     if(L.log.length){
       const pit=L.grp==='pitching',cols=pit?[['inningsPitched','局'],['hits','安'],['earnedRuns','责失'],['baseOnBalls','四坏'],['strikeOuts','三振']]:[['atBats','打数'],['hits','安打'],['homeRuns','全垒打'],['rbi','打点'],['strikeOuts','三振']];
       h+=`<section class="panel"><div class="sec-h">最近 ${L.log.length} 场</div><div class="tbl-wrap"><table><thead><tr><th>日期</th><th>对手</th>${cols.map(c=>`<th>${c[1]}</th>`).join('')}</tr></thead><tbody>${L.log.map(x=>{
         const o=x.opponent&&ID2AB[x.opponent.id];
         return `<tr><td>${esc((x.date||'').slice(5))}</td><td class="tm"><span class="t">${x.isHome===false?'@':'vs'} ${o?logo(o)+esc(team(o).n):''}</span></td>${cols.map(c=>`<td>${esc(x.stat[c[0]]!=null?x.stat[c[0]]:'-')}</td>`).join('')}</tr>`;}).join('')}</tbody></table></div></section>`;
     }
+    both.forEach(gp=>h+=yearsHTML(L,gp));
+  }else if(tab==='rating'){
+    both.forEach(gp=>{
+      let r=ratingsFor(gp,L.st[gp+'_season']),src=`${SEASON} 赛季`;
+      if(!r||r.few){r=ratingsFor(gp,L.st[gp+'_career']);src='生涯';}
+      const kind=gp==='pitching'?'投球':'打击';
+      if(!r||r.few){h+=`<section class="panel"><div class="sec-h">${kind}能力值</div><div class="empty">出场太少，暂时无法换算</div></section>`;return;}
+      const avgv=Math.round(r.axes.reduce((a,x)=>a+x[1],0)/r.axes.length);
+      const sorted=r.axes.slice().sort((a,b)=>b[1]-a[1]),strong=sorted.filter(x=>x[1]>=80).slice(0,3),weak=sorted.filter(x=>x[1]<=55).slice(-2);
+      h+=`<section class="panel"><div class="overall">${both.length>1?kind:'综合能力'}<b>${avgv}</b></div>${radarSVG(r.axes)}
+        ${strong.length||weak.length?`<div class="traits">${strong.map(x=>`<span><em>强项</em>${x[0]}</span>`).join('')}${weak.map(x=>`<span><em class="weak">弱项</em>${x[0]}</span>`).join('')}</div>`:''}
+        <div class="note">按${src}数据换算成 40–99 分，仅供参考，不是官方评分。${gp==='pitching'?'压制看防御率，控球看每九局保送，耐投看投球局数。':'力量看长打率减打击率，选球看保送与三振之比。'}</div></section>`;
+    });
+  }else if(tab==='info'){
+    h+=`<section class="panel"><div class="sec-h">基本资料</div><dl class="kv"><dt>姓名</dt><dd>${esc(zh||en)}</dd><dt>英文全名</dt><dd>${esc(p.fullFMLName||en)}</dd>
+      ${p.birthDate?`<dt>生日</dt><dd>${esc(p.birthDate)}${p.currentAge?`（${p.currentAge} 岁）`:''}</dd>`:''}
+      <dt>出生地</dt><dd>${esc([p.birthCity,COUNTRY[p.birthCountry]||p.birthCountry].filter(Boolean).join('，')||'—')}</dd>
+      <dt>身高 / 体重</dt><dd>${esc([heightCm(p.height),p.weight?Math.round(p.weight*0.4536)+' 公斤':''].filter(Boolean).join(' / ')||'—')}</dd>
+      ${hand?`<dt>投打</dt><dd>${hand}</dd>`:''}${p.draftYear?`<dt>选秀年份</dt><dd>${p.draftYear}</dd>`:''}${p.mlbDebutDate?`<dt>大联盟首秀</dt><dd>${esc(p.mlbDebutDate)}</dd>`:''}</dl></section>`;
+    if(job)h+=`<section class="panel"><div class="sec-h">现任职务</div><dl class="kv"><dt>球队</dt><dd>${t?esc(t.city+t.n):'—'}</dd><dt>职务</dt><dd>${esc(JOB_CN[job]||'教练组')}<br><small style="color:var(--faint)">${esc(job)}</small></dd></dl></section>`;
+    else{h+=txHTML(L);h+=spansHTML(L,L.grp);}
+  }else{ // coach: playing career
+    if(!L.st[L.grp+'_career'])h+=`<section class="panel"><div class="empty">没有大联盟出赛记录</div></section>`;
+    else{const defs=L.grp==='pitching'?PIT:HIT;
+      h+=`<section class="panel"><div class="sec-h">生涯${L.grp==='pitching'?'投球':'打击'}</div>${tiles(L.st[L.grp+'_career'],defs)}</section>`+spansHTML(L,L.grp)+txHTML(L)+yearsHTML(L,L.grp);}
   }
-  if(en)h+=`<section class="panel"><div class="sec-h">中文译名<small>${customNames[normName(en)]?'你设置的译名':NAMES[normName(en)]?'译名库':'暂无译名'}</small></div>
-    <form class="name-form" data-name="${esc(en)}"><input id="zh-in" maxlength="20" value="${esc(zh)}" placeholder="输入中文译名" autocomplete="off"><button type="submit">保存</button>${customNames[normName(en)]?'<button type="button" class="ghost" data-act="name-reset">恢复默认</button>':''}</form>
+  return h+(tab==='info'?nameForm(en):'')+'</div>';
+}
+function nameForm(en){
+  if(!en)return '';
+  return `<section class="panel"><div class="sec-h">中文译名<small>${customNames[normName(en)]?'你设置的译名':NAMES[normName(en)]?'译名库':'暂无译名'}</small></div>
+    <form class="name-form" data-name="${esc(en)}"><input id="zh-in" maxlength="20" value="${esc(zhName(en))}" placeholder="输入中文译名" autocomplete="off"><button type="submit">保存</button>${customNames[normName(en)]?'<button type="button" class="ghost" data-act="name-reset">恢复默认</button>':''}</form>
     <div class="note">译名只保存在这台设备上，会用在名单、教练团、球员榜和 AI 战报里。</div></section>`;
-  return h+'</div>';
 }
 
 /* ---------- render ---------- */
@@ -1186,18 +1314,19 @@ function sheetHTML(){
   if(s.kind==='news')return sheetArticle(NEWS.find(n=>n.id===s.id));
   if(s.kind==='game')return sheetGame(G(s.id));
   if(s.kind==='team')return sheetTeam(s.id,s.tab);
-  if(s.kind==='player')return sheetPlayer(s.id);
+  if(s.kind==='player')return sheetPlayer(s.id,s.tab);
   if(s.kind==='series')return sheetSeries(s.id);
 }
 function openSheet(kind,id){
   if(S.sheet&&kind!=='search')SHEET_STACK.push(S.sheet);
-  S.sheet={kind,id,tab:'info'};
+  S.sheet={kind,id,tab:kind==='player'?(PH[id]&&PH[id].job?'info':'data'):'info'};
   const root=$('#sheet-root');
   if(kind==='search'){
     root.innerHTML=`<div class="sheet"><div class="sheet-h">${backBtn}<input class="search-in" id="search-in" placeholder="搜索球队（中文、英文或缩写）、新闻" autocomplete="off"></div><div class="wrap" id="search-res">${sheetSearch('')}</div></div>`;
     $('#search-in').focus();
   }else root.innerHTML=`<div class="sheet">${sheetHTML()}</div>`;
   document.body.style.overflow='hidden';
+  if(kind==='team')ensureTeamSched(id);
   if(kind==='player'&&Live.state==='ok'&&!Live.player[id])loadPlayer(id).catch(()=>{Live.player[id]=null;}).then(()=>{if(S.sheet&&S.sheet.id===id)refreshSheet();});
   if(kind==='game'){const g=G(id);if(g&&g.real&&g.status!=='pre')loadFeed(g.pk).catch(()=>{Live.feed[g.pk]=[];}).then(refreshSheet);}
 }
@@ -1212,9 +1341,12 @@ function closeSheet(all){
   if(prev){S.sheet=prev;$('#sheet-root').innerHTML=`<div class="sheet">${sheetHTML()}</div>`;return;}
   SHEET_STACK.length=0;S.sheet=null;$('#sheet-root').innerHTML='';document.body.style.overflow='';
 }
+function ensureTeamSched(ab){
+  if(Live.state==='ok'&&!Live.teamSched[ab])loadTeamSched(ab).catch(()=>{Live.teamSched[ab]=null;}).then(()=>{if(S.sheet&&S.sheet.kind==='team'&&S.sheet.id===ab)refreshSheet();});
+}
 function setTeamTab(tab){
   S.sheet.tab=tab;refreshSheet();
-  const ab=S.sheet.id;
+  const ab=S.sheet.id;ensureTeamSched(ab);
   if((tab==='roster'||tab==='coaches')&&Live.state==='ok'&&!Live.roster[ab]&&!Live.coaches[ab])
     loadTeamExtra(ab).catch(()=>{Live.roster[ab]=Live.roster[ab]||[];Live.coaches[ab]=Live.coaches[ab]||[];}).then(()=>{if(S.sheet&&S.sheet.id===ab)refreshSheet();});
 }
@@ -1232,6 +1364,7 @@ document.addEventListener('click',e=>{
   else if(d.sview){S.sview=d.sview;render();}
   else if(d.teamp){if(S.sheet&&S.sheet.kind==='team'){S.sheet.id=d.teamp;setTeamTab('info');$('#sheet-root .sheet').scrollTop=0;}else openSheet('team',d.teamp);}
   else if(d.ttab)setTeamTab(d.ttab);
+  else if(d.ptab){S.sheet.tab=d.ptab;refreshSheet();}
   else if(d.player)openSheet('player',+d.player);
   else if(d.series)openSheet('series',d.series);
   else if(d.act==='bracket'){S.tab='stats';S.slg='MLB';S.sview='post';render();window.scrollTo(0,0);}
