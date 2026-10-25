@@ -415,6 +415,7 @@ td.tm button,td.tm span.t{display:inline-flex;align-items:center;gap:8px}
 .ai-out{padding:4px 14px 14px;white-space:pre-wrap;font-size:15px;line-height:1.85;margin:0}
 .ai-out .ai-title{display:block;font:700 18px/1.4 var(--f-display);margin-bottom:6px}
 .ai-meta{padding:0 14px 12px;font-size:12px;color:var(--faint)}
+.score-row .orig{display:block;font-size:12px;color:var(--faint)}
 .play .orig{display:block;font-size:12px;color:var(--faint);font-weight:400}
 .toast{position:fixed;left:50%;bottom:calc(76px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:60;background:var(--fg);color:var(--card);
   padding:8px 16px;border-radius:18px;font-size:13px;max-width:calc(100% - 32px);text-align:center}
@@ -909,6 +910,10 @@ function diamond(b){
   const base=(x,y,on)=>`<rect x="${x-8}" y="${y-8}" width="16" height="16" transform="rotate(45 ${x} ${y})" fill="${on?'var(--red)':'var(--card)'}" stroke="${on?'var(--red)':'var(--faint)'}" stroke-width="2"/>`;
   return `<svg viewBox="0 0 100 100" aria-label="垒上情况"><path d="M50 88 88 50 50 12 12 50z" fill="none" stroke="var(--line)" stroke-width="2"/>${base(88,50,b[0])}${base(50,12,b[1])}${base(12,50,b[2])}<path d="M44 84h12v6l-6 5-6-5z" fill="var(--faint)"/></svg>`;
 }
+function playText(m,tr){
+  const z=tr&&tr.map[m];if(z)return `${esc(z)}<span class="orig">${esc(m)}</span>`;
+  const r=zhPlay(m);return r.any?`${esc(r.text)}<span class="orig">${esc(m)}</span>`:esc(m);
+}
 const CMP_ROWS=[['安打','bs','hits'],['全垒打','bs','homeRuns'],['二垒安打','bs','doubles'],['打点','bs','rbi'],['保送','bs','baseOnBalls'],['三振','bs','strikeOuts'],
   ['盗垒','bs','stolenBases'],['残垒','bs','leftOnBase'],['失误','fs','errors'],['投手用球数','ps','numberOfPitches']];
 function cmpHTML(g,B){
@@ -958,7 +963,7 @@ function sheetGame(g,tab,side){
     const scoring=(plays||[]).filter(p=>p[2]).slice().reverse();
     if(scoring.length){
       const tr=(AIS[g.id]&&AIS[g.id].tr)||{map:{}};
-      h+=`<section class="panel"><div class="sec-h">得分摘要</div>${scoring.map(([t,m,,sc])=>`<div class="score-row"><small>${esc(t)}</small><span>${esc(tr.map[m]||m)}</span>${sc?`<b>${esc(sc)}</b>`:''}</div>`).join('')}</section>`;
+      h+=`<section class="panel"><div class="sec-h">得分摘要</div>${scoring.map(([t,m,,sc])=>`<div class="score-row"><small>${esc(t)}</small><span>${playText(m,tr)}</span>${sc?`<b>${esc(sc)}</b>`:''}</div>`).join('')}</section>`;
     }
     h+=B?cmpHTML(g,B):(waitBox||(g.real?noBox:''));
   }else if(tab==='lineup'){
@@ -967,9 +972,9 @@ function sheetGame(g,tab,side){
     if(g.real&&!plays)h+=`<section class="panel"><div class="empty">正在读取…</div></section>`;
     else if(plays&&plays.length){
       const tr=(AIS[g.id]&&AIS[g.id].tr)||{map:{}},trBusy=tr.status==='run';
-      const trBtn=g.real&&aiMode()!=='none'?`<button class="ai-btn" data-ai="translate" data-g="${g.id}" ${trBusy?'disabled':''}>${trBusy?'翻译中…':Object.keys(tr.map).length?'翻译新内容':'翻译成中文'}</button>`:(g.real?'<small>官方英文播报</small>':'');
-      h+=`<section class="panel"><div class="sec-h">文字直播${trBtn}</div>${tr.status==='err'?`<div class="ai-meta">${esc(aiErr(tr.err))}</div>`:''}${plays.slice(0,60).map(([t,m,r])=>{const z=tr.map[m];
-        return `<div class="play${r?' run':''}"><small>${esc(t)}</small><span>${z?`${esc(z)}<span class="orig">${esc(m)}</span>`:esc(m)}</span></div>`;}).join('')}</section>`;
+      const trBtn=g.real&&aiMode()!=='none'?`<button class="ai-btn" data-ai="translate" data-g="${g.id}" ${trBusy?'disabled':''}>${trBusy?'翻译中…':'AI 翻译'}</button>`:(g.real?'<small>官方播报</small>':'');
+      h+=`<section class="panel"><div class="sec-h">文字直播${trBtn}</div>${tr.status==='err'?`<div class="ai-meta">${esc(aiErr(tr.err))}</div>`:''}${plays.slice(0,60).map(([t,m,r])=>`<div class="play${r?' run':''}"><small>${esc(t)}</small><span>${playText(m,tr)}</span></div>`).join('')}
+        <div class="note">中文由规则自动翻译，个别句子会保留英文${trBtn.includes('ai-btn')?'，可以点"AI 翻译"补全':''}。下面的灰色小字是官方英文原文。</div></section>`;
     }else h+=`<section class="panel"><div class="empty">还没有文字直播</div></section>`;
   }else h+=aiPanel(g);
   return h+'</div>';
@@ -1111,6 +1116,95 @@ function sheetSeries(k){
     <section class="panel">${s.games.map(gameCard).join('')}</section></div>`;
 }
 
+/* ---------- 文字直播规则翻译（不需要 AI） ---------- */
+// MLB 官方播报句式固定：逐句匹配规则，认不出的句子保留英文。
+const PZ_POS={'pitcher':'投手','catcher':'捕手','first baseman':'一垒手','second baseman':'二垒手','third baseman':'三垒手','shortstop':'游击手',
+  'left fielder':'左外野手','center fielder':'中外野手','right fielder':'右外野手'};
+const PZ_DIR={'pitcher':'投手方向','catcher':'捕手方向','first baseman':'一垒方向','second baseman':'二垒方向','third baseman':'三垒方向','shortstop':'游击方向',
+  'left fielder':'左外野','center fielder':'中外野','right fielder':'右外野','left':'左外野','center':'中外野','right':'右外野','left-center':'左中外野','right-center':'右中外野'};
+const PZ_TYPE={'line drive':'平飞球','fly ball':'高飞球','ground ball':'滚地球','pop up':'小飞球','bunt':'触击球'};
+const PZ_HIT={singles:'一垒安打',doubles:'二垒安打',triples:'三垒安打'};
+const PZ_BASE={'1st':'一垒','2nd':'二垒','3rd':'三垒','home':'本垒'};
+const PZ_CHAL={'force play':'封杀','play at 1st':'一垒判决','tag play':'触杀','fair/foul':'界内外','catch/drop in outfield':'外野接球','hit by pitch':'触身球','pickoff':'牵制',
+  'stolen base':'盗垒','home-plate collision':'本垒冲撞','timing play':'得分时间','record keeping':'记录','slide interference':'滑垒妨碍','catch/drop in infield':'内野接球'};
+const PZ_POS_RE='(pitcher|catcher|first baseman|second baseman|third baseman|shortstop|left fielder|center fielder|right fielder)';
+const pzName=n=>dispName(n.trim());
+// "second baseman Brice Turang" -> "二垒手特朗"
+const pzFielder=s=>{const m=s.trim().match(new RegExp('^'+PZ_POS_RE+' (.+)$'));return m?PZ_POS[m[1]]+pzName(m[2]):s.trim();};
+const pzChain=s=>s.split(/ to (?=(?:pitcher|catcher|first baseman|second baseman|third baseman|shortstop|left fielder|center fielder|right fielder) )/).map(pzFielder).join(' → ');
+// "center fielder Garrett Mitchell" / "left field" / "deep right-center field" -> direction
+function pzWhere(s){
+  s=s.trim();
+  let m=s.match(new RegExp('^'+PZ_POS_RE+' (.+)$'));if(m)return {dir:PZ_DIR[m[1]],who:PZ_POS[m[1]]+pzName(m[2])};
+  m=s.match(/^(?:deep |shallow )?(left-center|right-center|left|center|right) field(?: line)?$/);if(m)return {dir:PZ_DIR[m[1]],who:''};
+  return null;
+}
+const PZ_RULES=[
+  [/^(.+?) strikes out swinging$/,m=>`${pzName(m[1])} 挥空三振`],
+  [/^(.+?) (?:strikes out looking|called out on strikes)$/,m=>`${pzName(m[1])} 站立看球三振`],
+  [/^(.+?) strikes out on a foul tip$/,m=>`${pzName(m[1])} 擦棒被捕三振`],
+  [/^(.+?) strikes out on a missed bunt$/,m=>`${pzName(m[1])} 触击未成三振`],
+  [/^(.+?) intentionally walks$/,m=>`${pzName(m[1])} 被故意保送`],
+  [/^(.+?) walks$/,m=>`${pzName(m[1])} 四坏球保送`],
+  [/^(.+?) hit by pitch$/,m=>`${pzName(m[1])} 被触身球，保送上垒`],
+  [/^(.+?) (singles|doubles|triples)(?: \(\d+\))? on a (sharp |soft )?(line drive|fly ball|ground ball|pop up|bunt) to (.+?)(?:, deflected by (.+))?$/,m=>{
+    const w=pzWhere(m[5]);if(!w)return null;
+    return `${pzName(m[1])} ${w.dir}${m[3]==='sharp '?'强劲':''}${PZ_TYPE[m[4]]}${PZ_HIT[m[2]]}${m[6]?`（经${pzFielder(m[6])}碰触）`:''}`;}],
+  [/^(.+?) doubles(?: \(\d+\))? on a ground-rule double(?: \(\d+\))? on a (?:sharp )?(line drive|fly ball|ground ball) to (.+)$/,m=>{const w=pzWhere(m[3]);return w&&`${pzName(m[1])} ${w.dir}场地规则二垒安打`;}],
+  [/^(.+?) (?:hits a )?ground-rule double(?: \((\d+)\))? on a (?:sharp )?(line drive|fly ball|ground ball) to (.+)$/,m=>{const w=pzWhere(m[4]);return w&&`${pzName(m[1])} ${w.dir}场地规则二垒安打`;}],
+  [/^(.+?) homers \((\d+)\) on a (line drive|fly ball) to (.+)$/,m=>{const w=pzWhere(m[4]);return w&&`${pzName(m[1])} ${w.dir}${PZ_TYPE[m[3]]}全垒打（本季第 ${m[2]} 支）`;}],
+  [/^(.+?) homers on a (line drive|fly ball) to (.+)$/,m=>{const w=pzWhere(m[3]);return w&&`${pzName(m[1])} ${w.dir}${PZ_TYPE[m[2]]}全垒打`;}],
+  [/^(.+?) homers(?: \((\d+)\))?$/,m=>`${pzName(m[1])} 全垒打${m[2]?`（本季第 ${m[2]} 支）`:''}`],
+  [/^(.+?) hits a grand slam \((\d+)\) to (.+)$/,m=>{const w=pzWhere(m[3]);return w&&`${pzName(m[1])} ${w.dir}满贯全垒打（本季第 ${m[2]} 支）`;}],
+  [/^(.+?) hits an inside-the-park home run \((\d+)\) on a (?:line drive|fly ball|ground ball) to (.+)$/,m=>{const w=pzWhere(m[3]);return w&&`${pzName(m[1])} ${w.dir}场内全垒打（本季第 ${m[2]} 支）`;}],
+  [/^(.+?) grounds out(?: (sharply|softly))?, (.+)$/,m=>`${pzName(m[1])} ${m[2]==='sharply'?'强劲':''}滚地球出局（${pzChain(m[3])}）`],
+  [/^(.+?) grounds out(?: (sharply|softly))? to (.+?)(?: unassisted)?$/,m=>`${pzName(m[1])} 滚地球出局（${pzFielder(m[3])}）`],
+  [/^(.+?) (flies|lines|pops) out(?: (sharply|softly))? to (.+?)( in foul territory)?$/,m=>{
+    const t={flies:'高飞球',lines:'平飞球',pops:'小飞球'}[m[2]];return `${pzName(m[1])} ${m[5]?'界外':''}${t}被${pzFielder(m[4])}接杀`;}],
+  [/^(.+?) (?:grounds|lines|flies|pops) into a double play, (.+)$/,m=>`${pzName(m[1])} 打成双杀（${pzChain(m[2])}）`],
+  [/^(.+?) (?:grounds|lines|flies|pops) into (?:a )?triple play, (.+)$/,m=>`${pzName(m[1])} 打成三杀（${pzChain(m[2])}）`],
+  [/^(.+?) (?:grounds|lines|flies|pops) into a force out, (.+)$/,m=>`${pzName(m[1])} 打成封杀（${pzChain(m[2])}）`],
+  [/^(.+?) reaches on a fielder's choice(?: out)?, (.+)$/,m=>`${pzName(m[1])} 野手选择上垒（${pzChain(m[2])}）`],
+  [/^(.+?) reaches on (?:a |an )?(fielding|throwing|missed catch) error by (.+)$/,m=>`${pzName(m[1])} 因${pzFielder(m[3])}${{fielding:'守备',throwing:'传球','missed catch':'漏接'}[m[2]]}失误上垒`],
+  [/^(.+?) (?:hits a |out on a )?sacrifice fly to (.+)$/,m=>{const w=pzWhere(m[2]);return w&&`${pzName(m[1])} ${w.dir}高飞牺牲打`;}],
+  [/^(.+?) (?:hits a |out on a )?sacrifice bunt, (.+)$/,m=>`${pzName(m[1])} 牺牲触击（${pzChain(m[2])}）`],
+  [/^(.+?) scores$/,m=>`${pzName(m[1])} 跑回本垒得分`],
+  [/^(.+?) to (1st|2nd|3rd)$/,m=>`${pzName(m[1])} 推进到${PZ_BASE[m[2]]}`],
+  [/^(.+?) advances to (1st|2nd|3rd)(?:, on a (?:throwing|fielding) error by (.+))?$/,m=>`${pzName(m[1])} 推进到${PZ_BASE[m[2]]}${m[3]?`（${pzFielder(m[3])}失误）`:''}`],
+  [/^(.+?) out at (1st|2nd|3rd|home)(?: on the throw)?(?:, (.+))?$/,m=>`${pzName(m[1])} 在${PZ_BASE[m[2]]}出局${m[3]?`（${pzChain(m[3])}）`:''}`],
+  [/^(.+?) steals \((\d+)\) (2nd|3rd) base$/,m=>`${pzName(m[1])} 盗上${PZ_BASE[m[3]]}（本季第 ${m[2]} 次）`],
+  [/^(.+?) steals \((\d+)\) home$/,m=>`${pzName(m[1])} 盗回本垒（本季第 ${m[2]} 次）`],
+  [/^(.+?) caught stealing (2nd|3rd|home)(?: base)?, (.+)$/,m=>`${pzName(m[1])} 盗${PZ_BASE[m[2]]}失败（${pzChain(m[3])}）`],
+  [/^(Fielding|Throwing) error by (.+)$/,m=>`${pzFielder(m[2])}${m[1]==='Fielding'?'守备':'传球'}失误`],
+  [/^(.+?) picked off and caught stealing (2nd|3rd) base, (.+)$/,m=>`${pzName(m[1])} 被牵制出局（${pzChain(m[3])}）`],
+  [/^(.+?) picks off (.+?) at (1st|2nd|3rd)(?: on throw to (.+))?$/,m=>`${pzFielder('pitcher '+m[1])}牵制${pzName(m[2])}于${PZ_BASE[m[3]]}出局`],
+  [/^Pitching Change: (.+?) replaces (.+?)(?:, batting .+)?$/,m=>`换投：${pzName(m[1])} 接替 ${pzName(m[2])}`],
+  [/^Offensive Substitution: Pinch-(hitter|runner) (.+?) replaces (.+)$/,m=>`${m[1]==='hitter'?'代打':'代跑'}：${pzName(m[2])} 替换 ${pzName(m[3])}`],
+  [/^Defensive Substitution: (.+?) replaces (.+?)(?:,.*)?$/,m=>`守备换人：${pzName(m[1])} 替换 ${pzName(m[2])}`],
+  [/^Defensive [Ss]witch from (.+?) to (.+?) for (.+)$/,m=>`守备调整：${pzName(m[3])} 换守位置`],
+  [/^Wild pitch by pitcher (.+)$/,m=>`投手${pzName(m[1])}暴投`],
+  [/^Passed ball by catcher (.+)$/,m=>`捕手${pzName(m[1])}捕逸`],
+];
+function pzSentence(x){
+  for(const [re,fn] of PZ_RULES){const m=x.match(re);if(m){const r=fn(m);if(r)return r;}}
+  return null;
+}
+// 返回 {text, all}：all 表示每一句都翻译了
+function zhPlay(desc){
+  let d=String(desc||'').trim(),pre='',all=true;
+  // 挑战："Rays challenged (force play), call on the field was overturned: ..."
+  let m;
+  while((m=d.match(/^(.+?) challenged \((.+?)\), call on the field was (overturned|upheld|confirmed|stands):\s*/))){
+    const nick=m[1].trim(),t=Object.values(MLB).find(x=>x.en.endsWith(' '+nick)||x.en===nick);
+    pre+=`【${t?t.n:nick}挑战${PZ_CHAL[m[2]]||m[2]}，${m[3]==='overturned'?'原判被推翻':'维持原判'}】`;
+    d=d.slice(m[0].length);
+  }
+  const parts=d.replace(/\.$/,'').split(/(?<!\b[A-Z])\.\s+(?=[A-Z])/).map(x=>x.trim().replace(/\.$/,'')).filter(Boolean);
+  const out=parts.map(p=>{const z=pzSentence(p);if(!z)all=false;return z||p+'.';});
+  const translated=out.some((x,i)=>x!==parts[i]+'.');
+  return {text:pre+out.join('，').replace(/\.，/g,'. ')+(all?'。':''),all,any:translated||!!pre};
+}
+
 /* ---------- AI 中文战报 (Claude) ---------- */
 // Inside a Claude viewer the page asks Claude on the viewer's own account (sample capability).
 // Anywhere else it can use the viewer's own Anthropic API key, kept only in this browser.
@@ -1204,8 +1298,8 @@ ${gameBrief(g)}`;
 }
 async function runTranslate(id){
   const g=G(id),tr=aiState(id).tr;if(!g||tr.status==='run')return;
-  const todo=((g.real?Live.feed[g.pk]:g.plays)||[]).map(p=>p[1]).filter(m=>!tr.map[m]).slice(0,30);
-  if(!todo.length)return;
+  const todo=((g.real?Live.feed[g.pk]:g.plays)||[]).map(p=>p[1]).filter(m=>!tr.map[m]&&!zhPlay(m).all).slice(0,30);
+  if(!todo.length){toast('这场比赛的直播已经全部翻译成中文');return;}
   tr.status='run';tr.err=null;refreshSheet();
   const prompt=`把下面的棒球文字直播逐条翻译成简洁的中文。
 规则：球员名使用译名参考里的中文名，没有译名的保留英文；术语用大陆常用说法（全垒打、三振、保送、双杀、高飞牺牲打、野手选择等）；不要增删信息。
