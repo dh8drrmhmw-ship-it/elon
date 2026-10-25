@@ -172,6 +172,7 @@ td.tm button,td.tm span.t{display:inline-flex;align-items:center;gap:8px}
 .circles::-webkit-scrollbar{display:none}
 .circle{flex:none;display:grid;justify-items:center;gap:4px;width:62px;font-size:12px}
 .circle small{color:var(--faint);font-size:11px}
+.circle[aria-pressed="true"] span,.circle[aria-pressed="true"] small{color:var(--brand-ink);font-weight:600}
 .post{padding:14px;border-top:1px solid var(--line);display:grid;gap:8px}
 .post:first-child{border-top:0}
 .post-h{display:flex;align-items:center;gap:10px}
@@ -293,6 +294,15 @@ td.tm button,td.tm span.t{display:inline-flex;align-items:center;gap:8px}
 .thero-stats div{display:grid;justify-items:center;font-size:11px;opacity:.9}
 .thero-stats b{font:700 20px var(--f-num)}
 .follow{position:relative;justify-self:start;padding:6px 16px;border-radius:16px;font-size:13px;font-weight:500;background:var(--on-team);color:var(--tc)}
+.thero-acts{position:relative;display:flex;gap:8px;flex-wrap:wrap}
+.myteam{color:var(--on-team);background:linear-gradient(160deg,var(--tc) 0%,var(--tc) 45%,var(--mast-2) 150%)}
+.myteam-h{display:flex;align-items:center;gap:12px;width:100%;padding:14px;text-align:left;color:inherit}
+.myteam-h div{flex:1;display:grid;gap:3px;min-width:0}
+.myteam-h b{font:900 19px var(--f-display);letter-spacing:.04em}
+.myteam-h small{font-size:12px;opacity:.85;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.myteam-h em{font-style:normal;font-size:11px;padding:2px 6px;border-radius:4px;background:rgba(255,255,255,.18)}
+.myteam-h .go{font-size:13px;opacity:.85}
+.myteam-sub{padding:10px 14px 2px;font-size:12px;color:var(--faint)}
 .follow[aria-pressed="true"]{background:rgba(255,255,255,.18);color:var(--on-team);box-shadow:inset 0 0 0 1px rgba(255,255,255,.5)}
 .ttabs{position:sticky;top:48px;z-index:1;display:flex;background:var(--card);border-bottom:1px solid var(--line)}
 .ttabs button{flex:1;padding:11px 0;text-align:center;font-size:14px;color:var(--muted);position:relative}
@@ -823,6 +833,7 @@ const CIRCLES=['LAD','NYY','TOR','BOS','CHC','SF','SEA','STL'];
 /* ---------- state ---------- */
 const S={tab:'home',ch:'头条',day:0,lg:'全部',slg:'MLB',sview:[9,10].includes(new Date().getMonth())?'post':'table',sheet:null};
 let follows=store.get('follows',['LAD','TOR']).filter(team);
+let myTeam=MLB[store.get('myteam','')]?store.get('myteam',''):'';
 let liked=new Set(store.get('liked',[]));
 let theme=store.get('theme','system');
 const myComments={};
@@ -887,6 +898,23 @@ function gameCard(g){
 const offNote=what=>`<div class="notice"><span>当前无法连接 MLB 官方数据，${what}为<b>示例</b>。把页面部署到普通网页（如 GitHub Pages）后会自动读取实时数据。</span></div>`;
 
 /* ---------- views ---------- */
+/* 我的主队：头条顶部固定显示主队的战绩、比赛、战报和异动 */
+function myTeamPanel(){
+  if(!myTeam)return `<section class="panel"><div class="sec-h">选择你的主队<small>选好后固定显示在头条顶部</small></div><div class="circles">${Object.keys(MLB).map(t=>
+    `<button class="circle" data-myteam="${t}">${logo(t,'lg')}<span>${esc(team(t).n)}</span></button>`).join('')}</div></section>`;
+  const ab=myTeam,t=MLB[ab],rec=Live.records[ab],form=teamForm(ab),live=Live.state==='ok';
+  if(live&&!(ab in Live.teamSched)){Live.teamSched[ab]=null;loadTeamSched(ab).catch(()=>{}).then(()=>{if(S.tab==='home')render();});}
+  const sched=Live.teamSched[ab];
+  const games=sched?[...sched.filter(g=>g.status==='final').slice(-1),...sched.filter(g=>g.status!=='final').slice(0,1)]
+    :(live?Live.games||[]:SAMPLE_GAMES).filter(g=>g.lg==='MLB'&&(g.a.t===ab||g.h.t===ab)).slice(0,2);
+  const recap=recaps().find(n=>n.art.includes(ab));
+  const tx=live&&Live.tx?Live.tx.filter(x=>txMajor(x)&&[x.toTeam,x.fromTeam].some(tm=>tm&&ID2AB[tm.id]===ab)).slice(0,3):[];
+  return `<section class="panel"><div class="myteam" style="--tc:${t.c}"><button class="myteam-h" data-teamp="${ab}">${logo(ab,'lg')}<div><b>${esc(t.n)}<span style="font-size:11px;font-weight:400;letter-spacing:0;opacity:.7;margin-left:8px">我的主队</span></b>
+      <small>${rec?`<span>${SEASON} 战绩 ${rec.w}-${rec.l}</span>${rec.rank?`<em>${esc(t.lg+t.div)}第${rec.rank}</em>`:''}`:`<span>${esc(t.lg+t.div)}</span>`}${form.length?`<span class="form">${form.map(r=>`<i class="${r}">${r==='w'?'胜':'负'}</i>`).join('')}</span>`:''}</small></div><span class="go">主页 ›</span></button></div>
+    ${games.length?`<div class="myteam-sub">${sched?'最近一场 · 下一场':live?'近期比赛':'近期比赛（示例）'}</div>${games.map(gameCard).join('')}`:sched?'<div class="empty">近期没有比赛安排</div>':''}
+    ${recap?`<div class="myteam-sub">最新战报</div>${newsRow(recap)}`:''}
+    ${tx.length?`<div class="myteam-sub">球队异动 · 最近 30 天</div>${txRows(tx)}`:''}</section>`;
+}
 const SAMPLE_CH={'日职':'日本职棒','韩职':'韩国职棒','中职':'中华职棒','中国':'中国棒球联赛'};
 function viewHome(){
   if(Live.state==='ok'){const todo=recaps().slice(0,6).filter(r=>Live.content[r.pk]===undefined);
@@ -898,8 +926,10 @@ function viewHome(){
   const news=allNews().filter(n=>n.ch.includes(S.ch));
   if(S.ch==='头条'||S.ch==='MLB'){
     main+=wsBanner();
+    if(S.ch==='头条')main+=myTeamPanel();
     let today=allGames().filter(g=>g.day===0&&g.lg==='MLB');
-    today.sort((a,b)=>(a.status==='live'?0:a.status==='pre'?1:2)-(b.status==='live'?0:b.status==='pre'?1:2));
+    const mine=g=>myTeam&&(g.a.t===myTeam||g.h.t===myTeam)?0:1;
+    today.sort((a,b)=>mine(a)-mine(b)||(a.status==='live'?0:a.status==='pre'?1:2)-(b.status==='live'?0:b.status==='pre'?1:2));
     main+=`<section class="panel"><div class="sec-h">今日比赛<small>${Live.state==='ok'?'美职棒为官方实时数据':'示例数据'}</small></div>${today.length?`<div class="strip">${today.map(miniCard).join('')}</div>`:'<div class="empty">今天没有比赛</div>'}</section>`;
   }
   if(SAMPLE_CH[S.ch])main+=`<section class="panel"><div class="notice"><span>${SAMPLE_CH[S.ch]}频道目前是<b>示例内容</b>，比分和新闻不是真实数据。真实数据目前只接入了美职棒。</span></div></section>`;
@@ -982,6 +1012,7 @@ function viewMe(){
   const main=`<div class="profile"><span class="avatar">棒</span><div><b>棒球新手</b><small>示例账号 · 看球第 37 天</small></div></div>
    <div class="wrap">
    <section class="panel"><div class="counts"><div><b>${follows.length}</b>关注球队</div><div><b>${liked.size}</b>点赞</div><div><b>${Object.values(myComments).flat().length}</b>评论</div><div><b>12</b>收藏</div></div></section>
+   <section class="panel"><div class="sec-h">我的主队<small>${myTeam?`${esc(team(myTeam).n)} · 再点一次取消`:'选一支显示在头条顶部'}</small></div><div class="circles">${Object.keys(MLB).sort((a,b)=>(b===myTeam)-(a===myTeam)).map(t=>`<button class="circle" data-myteam="${t}" aria-pressed="${myTeam===t}">${logo(t,'lg')}<span>${esc(team(t).n)}</span>${myTeam===t?'<small>★ 主队</small>':''}</button>`).join('')}</div></section>
    <section class="panel"><div class="sec-h">关注的美职棒球队<small>点击切换关注</small></div><div class="follow-grid">${mlbFollow.map(t=>`<button class="fbtn" data-follow="${t}" aria-pressed="${follows.includes(t)}">${logo(t)}<span>${esc(team(t).n)}</span></button>`).join('')}</div></section>
    <section class="panel"><div class="menu-row"><span>外观</span><div class="seg inline">${[['system','跟随系统'],['light','浅色'],['dark','深色']].map(([k,v])=>`<button data-theme-set="${k}" aria-pressed="${theme===k}">${v}</button>`).join('')}</div></div>
      <div class="menu-row"><span>AI 中文战报</span><small>${aiMode()==='sample'?'使用你的 Claude 账号':aiMode()==='key'?'使用你的 API Key':AI.sample===undefined?'检测中…':'未启用'}</small></div>
@@ -1093,7 +1124,7 @@ function sheetTeam(ab,tab){
    <div class="thero" ${tc}>${I.seam}<div class="thero-main">${logo(ab,'xl')}<div><h2>${esc(t.city)}${esc(t.n)}</h2><small>${esc(t.en.toUpperCase())}</small><small>${esc(t.lg)}${esc(t.div)}</small></div></div>
    <div class="thero-stats"><div><b>${rec&&rec.rank?'第'+rec.rank:'—'}</b>${esc(t.lg+t.div)}排名</div><div><b>${rec?`${rec.w}-${rec.l}`:'—'}</b>${rec?`${SEASON} 战绩`:'本季战绩'}</div>
      <div><b class="form" style="font-size:13px;line-height:23px">${form.length?form.map(r=>`<i class="${r}">${r==='w'?'胜':'负'}</i>`).join(''):'—'}</b>最近 ${form.length||5} 场</div><div><b>${ws}</b>世界大赛冠军</div></div>
-   <button class="follow" data-follow="${ab}" aria-pressed="${on}">${on?'已关注':'+ 关注'}</button></div>
+   <div class="thero-acts"><button class="follow" data-follow="${ab}" aria-pressed="${on}">${on?'已关注':'+ 关注'}</button><button class="follow" data-myteam="${ab}" aria-pressed="${myTeam===ab}">${myTeam===ab?'★ 我的主队':'设为主队'}</button></div></div>
    <nav class="ttabs" role="tablist" ${tc}>${[['info','简介'],['history','历史'],['coaches','教练'],['roster','球员']].map(([k,v])=>`<button role="tab" aria-selected="${tab===k}" data-ttab="${k}">${v}</button>`).join('')}</nav><div class="wrap">`;
   if(tab==='info'){
     h+=`<section class="panel"><div class="sec-h">球队简介</div><p class="prose">${esc(t.intro)}</p></section>
@@ -1935,6 +1966,11 @@ document.addEventListener('click',e=>{
     const t=d.follow,on=follows.includes(t);
     follows=on?follows.filter(x=>x!==t):[...follows,t];store.set('follows',follows);
     toast(on?`已取消关注${team(t).n}`:`已关注${team(t).n}`);render();refreshSheet();
+  }
+  else if(d.myteam){
+    const t=d.myteam,off=myTeam===t;myTeam=off?'':t;store.set('myteam',myTeam);
+    if(!off&&!follows.includes(t)){follows=[...follows,t];store.set('follows',follows);}
+    toast(off?`已取消主队${team(t).n}`:`${team(t).n}已设为主队，会显示在头条顶部`);render();refreshSheet();
   }
   else if(d.themeSet){theme=d.themeSet;store.set('theme',theme);applyTheme();render();}
 });
