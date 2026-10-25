@@ -376,6 +376,14 @@ span.tl{display:inline-flex;align-items:center;gap:6px;min-width:0}
 .scorers b{font-weight:500;color:var(--fg)}
 .scorers .hr{color:var(--red)}
 .scorers .more{display:block;text-align:center;color:var(--faint)}
+.txr{display:flex;gap:10px;align-items:flex-start;padding:11px 14px;border-top:1px solid var(--line);font-size:14px;line-height:1.6}
+.txr:first-child{border-top:0}
+.txr small{flex:none;width:42px;color:var(--faint);font:500 13px var(--f-num);padding-top:2px}
+.txr em{flex:none;font-style:normal;font-size:11px;line-height:1;padding:4px 6px;border-radius:4px;margin-top:2px;color:var(--brand-ink);background:var(--brand-soft)}
+.txr em.tr{color:var(--red);background:var(--red-soft)}
+.txr span{flex:1;min-width:0}
+.txr .tl{display:inline;color:var(--fg);font-weight:500}
+.sec-h .ai-btn{font-weight:500}
 .cmp-h{display:flex;justify-content:space-between;align-items:center;padding:12px 14px 4px;font-size:14px}
 .cmp-h>span{display:flex;align-items:center;gap:8px}
 .cmp{display:grid;grid-template-columns:34px 1fr 76px 1fr 34px;align-items:center;gap:6px;padding:7px 14px}
@@ -577,7 +585,7 @@ const SEASON=TODAY.getMonth()<2?TODAY.getFullYear()-1:TODAY.getFullYear();
 
 /* ---------- live MLB data (statsapi.mlb.com) ---------- */
 const API='https://statsapi.mlb.com/api';
-const Live={scoring:{},box:{},teamSched:{},post:null,state:'loading',games:null,standings:null,leaders:null,roster:{},coaches:{},feed:{},records:{},player:{}};
+const Live={tx:null,dec:{},scoring:{},box:{},teamSched:{},post:null,state:'loading',games:null,standings:null,leaders:null,roster:{},coaches:{},feed:{},records:{},player:{}};
 async function api(path,ms=8000){
   const ctl=new AbortController(),t=setTimeout(()=>ctl.abort(),ms);
   try{const r=await fetch(API+path,{signal:ctl.signal});if(!r.ok)throw new Error(r.status);return await r.json();}
@@ -611,10 +619,11 @@ const EV_CN={'Single':'一垒安打','Double':'二垒安打','Triple':'三垒安
   'Double Play':'双杀','Groundout':'滚地球','Flyout':'高飞球','Lineout':'平飞球','Pop Out':'小飞球','Wild Pitch':'暴投','Passed Ball':'捕逸','Balk':'投手犯规','Catcher Interference':'捕手妨碍'};
 // 得分球员：单独请求，失败不影响比分
 async function loadScoring(){
-  const d=await api(`/v1/schedule?sportId=1&startDate=${ymd(dateAt(-4))}&endDate=${ymd(dateAt(4))}&hydrate=scoringplays&fields=dates,games,gamePk,scoringPlays,result,event,rbi,awayScore,homeScore,about,halfInning,inning,matchup,batter,id,fullName`);
+  const d=await api(`/v1/schedule?sportId=1&startDate=${ymd(dateAt(-4))}&endDate=${ymd(dateAt(4))}&hydrate=scoringplays,decisions&fields=dates,games,gamePk,decisions,winner,loser,save,scoringPlays,result,event,rbi,awayScore,homeScore,about,halfInning,inning,matchup,batter,id,fullName`);
   (d.dates||[]).forEach(day=>day.games.forEach(x=>{
     Live.scoring[x.gamePk]=(x.scoringPlays||[]).map(p=>({top:p.about.halfInning==='top',inn:p.about.inning,id:p.matchup&&p.matchup.batter&&p.matchup.batter.id,
-      n:p.matchup&&p.matchup.batter&&p.matchup.batter.fullName,ev:p.result.event,rbi:p.result.rbi}));
+      n:p.matchup&&p.matchup.batter&&p.matchup.batter.fullName,ev:p.result.event,rbi:p.result.rbi,as:p.result.awayScore,hs:p.result.homeScore}));
+    if(x.decisions)Live.dec[x.gamePk]=x.decisions;
   }));
 }
 async function loadStandings(){
@@ -670,7 +679,7 @@ async function boot(){
   catch(e){Live.state='off';}
   render();
   if(Live.state!=='ok')return;
-  Promise.all([loadScoring().catch(()=>{}),loadStandings().catch(()=>{}),loadLeaders().catch(()=>{}),loadPost().catch(()=>{Live.post=[];})]).then(()=>{if(S.tab==='stats'||S.tab==='home')render();refreshSheet();});
+  Promise.all([loadTx().catch(()=>{Live.tx=[];}),loadScoring().catch(()=>{}),loadStandings().catch(()=>{}),loadLeaders().catch(()=>{}),loadPost().catch(()=>{Live.post=[];})]).then(()=>{if(S.tab==='stats'||S.tab==='home')render();refreshSheet();});
   setInterval(async()=>{
     if(!Live.games||!Live.games.some(g=>g.status==='live'))return;
     try{await loadSchedule();await Promise.all([loadPost().catch(()=>{}),loadScoring().catch(()=>{})]);}catch(e){return;}
@@ -721,7 +730,7 @@ function statusText(g){
 }
 
 const NEWS=[
- {id:'n2',ch:['头条','科普'],tag:'科普',art:['入门'],title:'新手入门：一篇看懂打击率、上垒率、长打率和OPS',src:'本垒学院',time:'2小时前',cm:418,
+ {id:'n2',ch:['科普'],tag:'科普',art:['入门'],title:'新手入门：一篇看懂打击率、上垒率、长打率和OPS',src:'本垒学院',time:'2小时前',cm:418,
   body:['刚开始看棒球，最容易被一串小数点吓到。其实常见的进攻数据只有四个，算法都很直接。',
    {f:'打击率 AVG = 安打 ÷ 打数'},
    '打数不含四坏球、触身球和牺牲打。一个赛季打击率在 .300 以上，就算顶尖打者。',
@@ -731,11 +740,9 @@ const NEWS=[
    '一垒安打算1个垒打，二垒安打算2个，三垒安打算3个，全垒打算4个。长打率体现打者的力量。',
    {f:'OPS = 上垒率 + 长打率'},
    'OPS 把上垒能力和长打能力合在一起，是最常用的综合进攻指标。.800 算优秀，.900 以上是全明星级别，超过 1.000 就是联盟顶级。']},
- {id:'n10',ch:['头条','MLB'],tag:'球队',art:['NYY','LAD'],title:'27冠对9冠：洋基与道奇，大联盟最古老的东西岸对决',src:'本垒历史馆',time:'3小时前',cm:512,
+ {id:'n10',ch:['科普'],tag:'历史',art:['NYY','LAD'],title:'27冠对9冠：洋基与道奇，大联盟最古老的东西岸对决',src:'本垒历史馆',time:'3小时前',cm:512,
   body:['洋基与道奇在世界大赛中相遇过12次，比任何两支球队都多。','两队的对决从道奇还在布鲁克林时就开始了。1955年布鲁克林道奇在第7场击败洋基，拿下队史第一座冠军。','2024年两队再次在世界大赛相遇，道奇以4比1胜出。点开球队页可以查看两队完整的夺冠年份。']},
- {id:'n3',ch:['头条','MLB'],tag:'深度',art:['牛棚'],title:'季后赛越打越长，牛棚深度成了世界大赛的胜负手',src:'外野看台',time:'3小时前',cm:256,
-  body:['进入季后赛后，各队先发投手的平均投球局数明显下降，教练更早启用后援投手。','对世界大赛的两支球队来说，第6到第8局由谁来投，往往比先发对位更能决定比赛走向。','连续出赛会消耗后援投手的状态，系列赛打到第5场以后，牛棚的轮换安排会成为双方教练最头疼的问题。']},
- {id:'n8',ch:['头条','MLB'],tag:'规则',art:['计时'],title:'投球计时器施行几年后，比赛节奏变快了多少？',src:'本垒学院',time:'昨天',cm:302,
+ {id:'n8',ch:['科普'],tag:'规则',art:['计时'],title:'投球计时器施行几年后，比赛节奏变快了多少？',src:'本垒学院',time:'昨天',cm:302,
   body:['投球计时器从2023赛季开始在大联盟施行，要求投手在规定秒数内出手，打者也必须在规定时间内准备好。','施行之后，九局比赛的平均时长明显缩短，同时放大的垒包和牵制次数限制让盗垒尝试大幅增加。','支持者认为比赛更紧凑，反对者则觉得投手和打者之间的心理较量少了一些味道。']},
  {id:'n4',ch:['日职'],tag:'示例',art:['SBH','HAN'],title:'日本大赛前瞻：软银鹰主场迎战阪神虎',src:'本垒日职频道',time:'4小时前',cm:173,
   body:['（示例资讯）日本大赛采用七战四胜制，由太平洋联盟与中央联盟的冠军争夺日本第一。','软银鹰的先发轮值整体更稳定，阪神虎则依靠强力的后援群。']},
@@ -746,7 +753,7 @@ const NEWS=[
  {id:'n9',ch:['日职'],tag:'文化',art:['甲子园'],title:'从甲子园到职业赛场：高中棒球为何能撑起日本棒球的半壁江山',src:'本垒日职频道',time:'2天前',cm:88,
   body:['每年春夏两季的甲子园大会，是日本最受关注的体育赛事之一。','很多职业球员在高中时期就已经被球探关注，选秀会上高中生的比例一直很高。','这一套从校园到职业的选拔体系，是日本棒球长期保持竞争力的基础。']}
 ];
-const CHANNELS=['头条','MLB','日职','韩职','中职','中国','科普'];
+const CHANNELS=['头条','战报','转会','MLB','科普','日职','韩职','中职','中国'];
 const COMMENTS={n2:[['滚地球专家','终于搞懂OPS了，收藏','12分钟前',86],['北境枫叶','求一篇讲WAR的','40分钟前',31]],n3:[['投手丘的风','后援投手连投三天真的扛不住','1小时前',57]]};
 
 const SAMPLE_STANDINGS={
@@ -809,7 +816,7 @@ function art(n){
   if(n.art.length===2){const[a,b]=n.art;return `<div class="art" style="--c1:${team(a).c};--c2:${team(b).c}">${I.seam}${logo(a)}<i>VS</i>${logo(b)}</div>`;}
   return `<div class="art solo">${I.seam}<span class="label">${esc(n.art[0])}</span></div>`;
 }
-function newsMeta(n){return `<div class="news-m">${n.tag?`<span class="tag${n.hot?' hot':''}">${esc(n.tag)}</span>`:''}<span>${esc(n.src)}</span><span>${esc(n.time)}</span><span>${n.cm+(myComments[n.id]||[]).length}评</span></div>`;}
+function newsMeta(n){return `<div class="news-m">${n.tag?`<span class="tag${n.hot?' hot':''}">${esc(n.tag)}</span>`:''}<span>${esc(n.src)}</span><span>${esc(n.time)}</span>${n.auto?'':`<span>${n.cm+(myComments[n.id]||[]).length}评</span>`}</div>`;}
 function newsRow(n){return `<button class="news" data-news="${n.id}"><div class="news-tx"><div class="news-t">${esc(n.title)}</div>${newsMeta(n)}</div>${art(n)}</button>`;}
 function miniCard(g){
   const ra=runs(g.a),rh=runs(g.h),sc=hasScore(g),fin=g.status==='final';
@@ -834,22 +841,25 @@ const offNote=what=>`<div class="notice"><span>当前无法连接 MLB 官方数�
 function viewHome(){
   const mast=`<div class="mast-top"><div class="brand">${I.plate}本垒</div><button class="search" data-act="search">${I.search}搜索球队、新闻</button>${srcChip()}</div>
    <nav class="channels" role="tablist">${CHANNELS.map(c=>`<button role="tab" aria-selected="${c===S.ch}" data-ch="${c}">${c}</button>`).join('')}</nav>`;
-  const list=NEWS.filter(n=>n.ch.includes(S.ch));
   let main='<div class="wrap">';
-  if(S.ch==='头条'||S.ch==='MLB')main+=wsBanner();
+  if(S.ch==='转会')return {mast,main:main+txPanel(0)+'</div>'};
+  const news=allNews().filter(n=>n.ch.includes(S.ch));
   if(S.ch==='头条'||S.ch==='MLB'){
+    main+=wsBanner();
     let today=allGames().filter(g=>g.day===0&&(S.ch==='头条'||g.lg==='MLB'));
     today.sort((a,b)=>(a.status==='live'?0:a.status==='pre'?1:2)-(b.status==='live'?0:b.status==='pre'?1:2));
     main+=`<section class="panel"><div class="sec-h">今日比赛<small>${Live.state==='ok'?'美职棒为官方实时数据':'示例数据'}</small></div>${today.length?`<div class="strip">${today.map(miniCard).join('')}</div>`:'<div class="empty">今天没有比赛</div>'}</section>`;
   }
-  if(S.ch==='MLB'){
-    main+=`<section class="panel"><div class="sec-h">30 支球队<small>点击查看球队主页</small></div>${teamGrid()}</section>`;
-  }
-  if(list.length){
-    const [first,...rest]=list;
+  if(S.ch==='MLB')main+=`<section class="panel"><div class="sec-h">30 支球队<small>点击查看球队主页</small></div>${teamGrid()}</section>`;
+  const recapNote=Live.state==='ok'?'':`<section class="panel">${offNote('赛后战报')}</section>`;
+  if(S.ch==='战报'&&!news.length)return {mast,main:main+(recapNote||`<section class="panel"><div class="empty">${Live.games&&Live.scoring?'最近几天没有完赛的比赛':'正在读取…'}</div></section>`)+'</div>'};
+  if(news.length){
+    const [first,...rest]=news;
     main+=`<section class="panel"><button class="hero" data-news="${first.id}">${art(first)}<div class="hero-t">${esc(first.title)}${newsMeta(first)}</div></button></section>`;
+    if(S.ch==='头条')main+=txPanel(5);
     if(rest.length)main+=`<section class="panel">${rest.map(newsRow).join('')}</section>`;
   }else main+=`<section class="panel"><div class="empty">这个频道暂时没有新内容</div></section>`;
+  if((S.ch==='头条')&&!news.some(n=>n.auto))main+=recapNote;
   return {mast,main:main+'</div>'};
 }
 function teamGrid(){
@@ -934,13 +944,14 @@ function viewMe(){
 /* ---------- sheets ---------- */
 const backBtn=`<button class="back" data-act="close" aria-label="返回">${I.back}</button>`;
 function sheetArticle(n){
+  if(!n)return `<div class="sheet-h">${backBtn}<b>资讯</b><span class="side"></span></div><div class="empty">这篇内容已经不在了</div>`;
   if(n.game)return sheetGame(G(n.game));
   const body=(n.body||[]).map(b=>typeof b==='string'?`<p>${esc(b)}</p>`:`<p class="formula">${esc(b.f)}</p>`).join('');
   const cm=[...(myComments[n.id]||[]),...(COMMENTS[n.id]||[])];
   return `<div class="sheet-h">${backBtn}<b>${esc(n.src)}</b><span class="side"></span></div>
-   <article class="article"><h2>${esc(n.title)}</h2>${newsMeta(n)}${art(n)}${body}</article>
+   <article class="article"><h2>${esc(n.title)}</h2>${newsMeta(n)}${art(n)}${body}${n.gref?`<button class="ai-btn" data-game="${n.gref}">查看比赛详情 ›</button><p class="note" style="padding:12px 0 0">本文根据 MLB 官方比分和得分记录自动生成。</p>`:''}</article>${n.auto?'':`
    <section class="cmts"><div class="sec-h">评论<small>${cm.length?cm.length+'条':''}</small></div>${cm.length?cm.map(([u,t,time,lk])=>`<div class="cmt"><span class="avatar" style="--tc:var(--brand)">${esc(u[0])}</span><div><b>${esc(u)}</b><p>${esc(t)}</p><small>${esc(time)}${lk?` · ${lk}赞`:''}</small></div></div>`).join(''):'<div class="empty">还没有评论，来说第一句</div>'}</section>
-   <form class="composer" data-comment="${n.id}"><input id="cmt-in" maxlength="200" placeholder="说点什么…" autocomplete="off"><button type="submit">发送</button></form>`;
+   <form class="composer" data-comment="${n.id}"><input id="cmt-in" maxlength="200" placeholder="说点什么…" autocomplete="off"><button type="submit">发送</button></form>`}`;
 }
 function diamond(b){
   const base=(x,y,on)=>`<rect x="${x-8}" y="${y-8}" width="16" height="16" transform="rotate(45 ${x} ${y})" fill="${on?'var(--red)':'var(--card)'}" stroke="${on?'var(--red)':'var(--faint)'}" stroke-width="2"/>`;
@@ -1062,7 +1073,7 @@ function sheetTeam(ab,tab){
 function sheetSearch(q){
   const kw=q.trim(),lo=kw.toLowerCase();
   if(!kw)return `<section class="panel"><div class="sec-h">美职棒球队</div>${teamGrid()}</section>`;
-  const ns=NEWS.filter(n=>n.title.includes(kw));
+  const ns=allNews().filter(n=>n.title.includes(kw));
   const ts=Object.values(MLB).filter(t=>t.n.includes(kw)||t.city.includes(kw)||t.ab.toLowerCase()===lo||t.en.toLowerCase().includes(lo));
   if(!ns.length&&!ts.length)return `<div class="empty">没有找到和“${esc(kw)}”相关的内容</div>`;
   let r='';
@@ -1072,6 +1083,92 @@ function sheetSearch(q){
 }
 
 
+
+
+/* ---------- 首页：自动赛后战报 ---------- */
+const RBI_CN={2:'两分',3:'三分',4:'满贯'};
+const HALF=p=>`${p.inn}局${p.top?'上':'下'}`;
+function evPhrase(p){
+  if(p.ev==='Home Run')return `${RBI_CN[p.rbi]||''}全垒打`;
+  return `${EV_CN[p.ev]||'击球'}${p.rbi>1?`带回 ${p.rbi} 分`:''}`;
+}
+function recapOf(g){
+  if(!g.real||g.status!=='final')return null;
+  const plays=Live.scoring[g.pk];if(!plays||!plays.length)return null;
+  const ra=runs(g.a),rh=runs(g.h);if(ra===rh)return null;
+  const W=ra>rh?g.a:g.h,L=W===g.a?g.h:g.a,wTop=W===g.a,ws=Math.max(ra,rh),ls=Math.min(ra,rh);
+  const Wn=team(W.t).n,Ln=team(L.t).n,nm=p=>p.n?dispName(p.n):'—';
+  // 制胜分：赢球一方最后一次由“不领先”变成“领先”的得分
+  let prevA=0,prevH=0,ga=null;
+  plays.forEach(p=>{const a=p.as!=null?p.as:prevA,h=p.hs!=null?p.hs:prevH;
+    const wb=wTop?prevA:prevH,lb=wTop?prevH:prevA,wa=wTop?a:h,la=wTop?h:a;
+    if(p.top===wTop&&wb<=lb&&wa>la)ga=p;prevA=a;prevH=h;});
+  const mine=plays.filter(p=>p.top===wTop),hr=mine.filter(p=>p.ev==='Home Run').sort((x,y)=>(y.rbi||0)-(x.rbi||0))[0];
+  const walkoff=ga&&!wTop&&ga===plays[plays.length-1]&&ga.inn>=9;
+  const hero=ga||hr||mine.slice().sort((x,y)=>(y.rbi||0)-(x.rbi||0))[0];
+  let title=`${Wn} ${ws}-${ls} ${Ln}`;
+  if(walkoff)title+=`，${nm(ga)}${ga.inn}局下${evPhrase(ga)}再见`;
+  else if(hero&&hero===ga)title+=`，${nm(ga)}${ga.inn}局${evPhrase(ga)}打下制胜分`;
+  else if(hero)title+=`，${nm(hero)}${evPhrase(hero)}`;
+  if(ls===0)title+=`${hero?'':'，'}完封`;
+  const s=(Live.post||[]).find(x=>x.games.some(y=>y.id===g.id));
+  const series=s?`系列赛方面，${seriesStatus(s).t}。`:'';
+  const d=dateAt(g.day);
+  const body=[`${d.getMonth()+1}月${d.getDate()}日，${g.stage}，${Wn}在${g.venue||'客场'}以 ${ws} 比 ${ls} 击败${Ln}${ls===0?'，投手群完封对手':''}。${series}`,
+    `得分过程：${plays.map(p=>`${HALF(p)}，${team((p.top?g.a:g.h).t).n}的${nm(p)}${evPhrase(p)}${p.as!=null?`（${p.as}-${p.hs}）`:''}`).join('；')}。`];
+  const dc=Live.dec[g.pk];
+  if(dc&&dc.winner)body.push(`胜投 ${dispName(dc.winner.fullName)}，败投 ${dc.loser?dispName(dc.loser.fullName):'—'}${dc.save?`，${dispName(dc.save.fullName)}拿下救援成功`:''}。`);
+  body.push(`全场${Wn}击出 ${W.h} 支安打，${Ln} ${L.h} 支。`);
+  return {id:'r'+g.pk,ch:['头条','战报','MLB'],tag:'战报',art:[W.t,L.t],title,src:'本垒自动战报',time:g.day===0?'今天':g.day===-1?'昨天':dayLabel(g.day).num,
+    body,gref:g.id,auto:1,day:g.day,time2:g.time};
+}
+const recaps=()=>Live.state==='ok'&&Live.games?Live.games.map(recapOf).filter(Boolean).sort((a,b)=>b.day-a.day||b.time2.localeCompare(a.time2)):[];
+const allNews=()=>[...recaps(),...NEWS];
+
+/* ---------- 首页：签约 / 交易动态 ---------- */
+async function loadTx(){
+  const d=await api(`/v1/transactions?sportId=1&startDate=${ymd(dateAt(-30))}&endDate=${ymd(TODAY)}`);
+  Live.tx=(d.transactions||[]).filter(x=>x.person&&(ID2AB[x.toTeam&&x.toTeam.id]||ID2AB[x.fromTeam&&x.fromTeam.id]))
+    .sort((a,b)=>(b.date||'').localeCompare(a.date||'')||b.id-a.id);
+}
+const TX_POS={RHP:'右投',LHP:'左投',P:'投手',C:'捕手','1B':'一垒手','2B':'二垒手','3B':'三垒手',SS:'游击手',LF:'左外野手',CF:'中外野手',RF:'右外野手',OF:'外野手',IF:'内野手',INF:'内野手',DH:'指定打击',UT:'工具人'};
+const TX_TAG={TR:'交易',SFA:'签约',SGN:'签约',CLW:'认领',DES:'让渡',REL:'释放',RET:'退役',OUT:'下放',SE:'升上'};
+const txMinor=x=>/minor league contract/i.test(x.description||'')||['OUT','SE'].includes(x.typeCode);
+const txMajor=x=>['TR','SFA','SGN','CLW','DES','REL','RET'].includes(x.typeCode)&&!txMinor(x);
+function txLine(x){
+  const pn=x.person,desc=x.description||'',esc2=n=>n.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  const pm=desc.match(new RegExp('\\b([A-Z0-9]{1,3})\\s+'+esc2(pn.fullName)));
+  hint(pn.id,pn.fullName,ID2AB[x.toTeam&&x.toTeam.id]||ID2AB[x.fromTeam&&x.fromTeam.id]);
+  const who=`${pm&&TX_POS[pm[1]]?TX_POS[pm[1]]:''}<span class="tl" data-player="${pn.id}" role="link" tabindex="0">${esc(dispName(pn.fullName))}</span>`;
+  const T=tm=>{if(!tm)return '';const ab=ID2AB[tm.id];return ab?`<span class="tl" data-teamp="${ab}" role="link" tabindex="0">${esc(team(ab).n)}</span>`:esc(tm.name);};
+  const minor=txMinor(x)&&x.typeCode!=='OUT'?'（小联盟合约）':'',from=T(x.fromTeam),to=T(x.toTeam);
+  switch(x.typeCode){
+    case 'TR':return `${from} 将 ${who} 交易至 ${to}${/for cash/i.test(desc)?'，换取现金':''}`;
+    case 'SFA':return `${to} 签下自由球员 ${who}${minor}`;
+    case 'SGN':return `${to} 与 ${who} ${/extension/i.test(desc)?'续约':'签约'}${minor}`;
+    case 'CLW':return `${to} 从 ${from||'其他球队'} 认领 ${who}`;
+    case 'DES':return `${from||to} 将 ${who} 指定让渡（DFA）`;
+    case 'REL':return `${from||to} 释放 ${who}`;
+    case 'RET':return `${who} 宣布退役`;
+    case 'OUT':return `${from} 将 ${who} 下放至小联盟（${esc(x.toTeam?x.toTeam.name:'')}）`;
+    case 'SE':return `${to} 将 ${who} 升上大联盟名单`;
+    default:return null;
+  }
+}
+function txRows(list){
+  return list.map(x=>{const t=txLine(x);if(!t)return '';
+    return `<div class="txr"><small>${esc((x.date||'').slice(5))}</small><em class="${x.typeCode==='TR'?'tr':''}">${TX_TAG[x.typeCode]||'异动'}</em><span>${t}</span></div>`;}).join('');
+}
+function txPanel(limit){
+  if(Live.state!=='ok')return `<section class="panel"><div class="sec-h">签约与交易</div>${offNote('球员异动')}</section>`;
+  if(!Live.tx)return `<section class="panel"><div class="sec-h">签约与交易</div><div class="empty">正在读取…</div></section>`;
+  const major=Live.tx.filter(txMajor),showAll=S.txAll,list=(showAll?Live.tx.filter(x=>TX_TAG[x.typeCode]):major);
+  const shown=limit?list.slice(0,limit):list;
+  return `<section class="panel"><div class="sec-h">签约与交易<small>最近 30 天 · MLB 官方</small></div>
+    ${limit?'':`<div class="seg"><button aria-pressed="${!showAll}" data-txall="0">大联盟级别</button><button aria-pressed="${!!showAll}" data-txall="1">全部（含小联盟）</button></div>`}
+    ${shown.length?txRows(shown):`<div class="empty">${showAll?'最近 30 天没有异动':'最近 30 天没有大联盟级别的签约或交易。世界大赛结束后，自由球员市场开启，这里会热闹起来。'}</div>`}
+    ${limit&&list.length>limit?`<button class="lrow" data-ch="转会" style="justify-content:center;color:var(--brand-ink)">查看全部 ${list.length} 条</button>`:''}</section>`;
+}
 
 /* ---------- postseason bracket ---------- */
 const ROUNDS=[['W','世界大赛','七战四胜'],['L','联盟冠军赛','七战四胜'],['D','分区系列赛','五战三胜'],['F','外卡系列赛','三战两胜']];
@@ -1525,7 +1622,7 @@ function render(){
 }
 function sheetHTML(){
   const s=S.sheet;
-  if(s.kind==='news')return sheetArticle(NEWS.find(n=>n.id===s.id));
+  if(s.kind==='news')return sheetArticle(allNews().find(n=>n.id===s.id));
   if(s.kind==='game')return sheetGame(G(s.id),s.tab,s.side);
   if(s.kind==='team')return sheetTeam(s.id,s.tab);
   if(s.kind==='player')return sheetPlayer(s.id,s.tab);
@@ -1571,7 +1668,8 @@ document.addEventListener('click',e=>{
   const b=e.target.closest('[data-teamp],[data-player],button');if(!b)return;
   const d=b.dataset;
   if(d.tab){S.tab=d.tab;closeSheet(true);render();window.scrollTo(0,0);try{history.replaceState(null,'','#'+d.tab)}catch(_){}}
-  else if(d.ch){S.ch=d.ch;render();window.scrollTo(0,0);}
+  else if(d.ch){S.tab='home';S.ch=d.ch;closeSheet(true);render();window.scrollTo(0,0);}
+  else if(d.txall){S.txAll=d.txall==='1';render();}
   else if(d.lg){S.lg=d.lg;render();}
   else if(d.day!==undefined){S.day=+d.day;render();}
   else if(d.slg){S.slg=d.slg;render();}
