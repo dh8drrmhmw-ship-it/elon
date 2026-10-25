@@ -1126,8 +1126,9 @@ async function loadContent(pk){
       const kw=it.keywordsAll||[],has=v=>kw.some(k=>k.value===v);
       const cuts=(it.image&&it.image.cuts)||[],cut=cuts.slice().sort((a,b)=>a.width-b.width).find(c=>c.width>=640)||cuts[0];
       const mp4=(it.playbacks||[]).find(p=>p.name==='mp4Avc')||(it.playbacks||[]).find(p=>/\.mp4/.test(p.url||''));
+      const hls=(it.playbacks||[]).find(p=>p.name==='hlsCloud')||(it.playbacks||[]).find(p=>/\.m3u8/.test(p.url||''));
       const pidk=kw.find(k=>k.type==='player_id');
-      return {h:it.headline||'',dur:(it.duration||'').replace(/^00:/,''),img:cut&&cut.src,mp4:mp4&&mp4.url,date:it.date||'',
+      return {h:it.headline||'',dur:(it.duration||'').replace(/^00:/,''),img:cut&&cut.src,mp4:mp4&&mp4.url,hls:hls&&hls.url,date:it.date||'',
         kind:has('game-recap')||has('mlb_recap')?'recap':has('condensed-game')||has('condensed_game')?'condensed':'clip',
         pid:pidk&&+pidk.value,pn:pidk&&pidk.displayName};
     }).filter(x=>x.mp4&&x.img);
@@ -1158,8 +1159,20 @@ function recapClip(pk,heroId){
 function openVideo(pk,i){
   const c=Live.content[pk]&&Live.content[pk][i];if(!c)return;
   const box=document.createElement('div');box.className='vbox';box.id='vbox';
-  box.innerHTML=`<div class="vh"><button data-act="vclose">关闭</button></div><video controls autoplay playsinline poster="${esc(c.img)}" src="${esc(c.mp4)}"></video><p>${c.pid?esc(dispName(c.pn))+' · ':''}${esc(c.h)}<br><small style="opacity:.6">视频来源：MLB 官方</small></p>`;
+  // 自适应码率（HLS）会按网速切换清晰度；Safari 原生支持，其他浏览器用 MP4
+  const probe=document.createElement('video'),useHls=c.hls&&probe.canPlayType('application/vnd.apple.mpegurl');
+  const src=useHls?c.hls:c.mp4;
+  box.innerHTML=`<div class="vh"><button data-act="vclose">关闭</button></div><video controls autoplay playsinline preload="auto" poster="${esc(c.img)}" src="${esc(src)}"></video>
+    <p>${c.pid?esc(dispName(c.pn))+' · ':''}${esc(c.h)}<br><small class="vstate" style="opacity:.7">正在加载…</small><br>
+    <small style="opacity:.6">视频来源：MLB 官方${useHls?' · 自动匹配清晰度':''} · <a href="${esc(c.mp4)}" target="_blank" rel="noopener" style="color:inherit">在新窗口打开视频</a></small></p>`;
   document.body.appendChild(box);
+  const v=box.querySelector('video'),st=box.querySelector('.vstate'),say=t=>{st.textContent=t;};
+  v.addEventListener('waiting',()=>say('正在缓冲…网络较慢时会先降低清晰度'));
+  v.addEventListener('stalled',()=>say('视频服务器在国外，下载较慢，正在继续加载…'));
+  v.addEventListener('playing',()=>say(''));
+  v.addEventListener('error',()=>{
+    if(useHls&&v.src!==c.mp4){v.src=c.mp4;v.play().catch(()=>{});say('换用 MP4 重新加载…');}
+    else say('视频加载失败，可以点下面的链接在新窗口打开');});
 }
 const closeVideo=()=>{const b=document.getElementById('vbox');if(b)b.remove();};
 
