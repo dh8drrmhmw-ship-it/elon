@@ -14,3 +14,10 @@ for (const t of teams) {
 }
 console.log(`MISSING ${missing.size}`);
 for (const m of [...missing].sort()) console.log('N:' + m);
+
+// 临时探测：赛程 hydrate=scoringplays 的返回格式
+const sp = await (await fetch('https://statsapi.mlb.com/api/v1/schedule?sportId=1&startDate=2026-10-20&endDate=2026-10-25&hydrate=scoringplays')).json();
+const g = sp.dates?.flatMap(d => d.games).find(x => x.scoringPlays?.length);
+console.log('SCORING sample game', g?.gamePk, 'plays', g?.scoringPlays?.length);
+console.log('SCORING keys', Object.keys(g?.scoringPlays?.[0] || {}).join(','));
+console.log('SCORING first', JSON.stringify({ result: g?.scoringPlays?.[0]?.result, about: g?.scoringPlays?.[0]?.about, batter: g?.scoringPlays?.[0]?.matchup?.batter }).slice(0, 800));
