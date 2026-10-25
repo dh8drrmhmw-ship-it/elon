@@ -9,7 +9,7 @@
   --mast:#0a1d3f; --mast-2:#06142e; --on-mast:#ffffff; --on-mast-dim:rgba(225,233,247,.68); --mast-glass:rgba(255,255,255,.1);
   --brand:#1f5fd1; --brand-ink:#1849a8; --brand-soft:#e7eefb; --red:#c8102e; --red-soft:#fbe9ec; --gold:#b8862b;
   --bg:#f1f3f7; --card:#ffffff; --fg:#0c1628; --muted:#5d6a80; --faint:#97a1b3; --line:#e4e8ef; --soft:#f5f7fa;
-  --on-team:#ffffff; --shadow:0 1px 2px rgba(10,29,63,.05);
+  --on-team:#ffffff; --crest-bg:#ffffff; --shadow:0 1px 2px rgba(10,29,63,.05);
   --f-body:"Noto Sans SC","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
   --f-display:"Noto Serif SC","Songti SC",serif;
   --f-num:"Barlow Condensed","DIN Alternate","Arial Narrow",system-ui,sans-serif;
@@ -77,6 +77,10 @@ button:focus-visible,input:focus-visible{outline:2px solid var(--brand);outline-
 /* logos & art */
 .logo{flex:none;display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--tc);color:var(--on-team);
   font:700 9.5px/1 var(--f-num);letter-spacing:.02em;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.22)}
+.logo b{font:inherit}
+.logo.crest{background:var(--crest-bg);box-shadow:inset 0 0 0 1px var(--line)}
+.logo.crest img{width:76%;height:76%;object-fit:contain}
+.logo.crest b{display:none}
 .logo.cn{font:600 9.5px/1 var(--f-body)}
 .logo.md{width:34px;height:34px;font-size:12px}
 .logo.lg{width:54px;height:54px;font-size:17px}
@@ -558,7 +562,10 @@ const LEAGUES=['MLB','NPB','KBO','中职','中国'];
 const LG_NAME={MLB:'美职棒',NPB:'日职',KBO:'韩职',中职:'中职',中国:'中国棒球联赛'};
 // 可点击进入球队页的包装（不用 button，避免嵌套在其他按钮里）
 const tl=(ab,inner)=>MLB[ab]?`<span class="tl" data-teamp="${ab}" role="link" tabindex="0">${inner}</span>`:inner;
-const logo=(c,cls='')=>{const t=team(c);return `<span class="logo ${MLB[c]?'':'cn '}${cls}" style="--tc:${t.c}">${esc(t.s)}</span>`;};
+// MLB 球队显示官方队徽；图片加载失败（例如 claude.ai 预览会拦截外部图片）时退回字母圆标
+const logo=(c,cls='')=>{const t=team(c);
+  if(MLB[c])return `<span class="logo crest ${cls}" style="--tc:${t.c}"><img src="https://www.mlbstatic.com/team-logos/${t.id}.svg" alt="" loading="lazy" onerror="this.parentNode.classList.remove('crest');this.remove()"><b>${esc(t.s)}</b></span>`;
+  return `<span class="logo cn ${cls}" style="--tc:${t.c}">${esc(t.s)}</span>`;};
 
 /* ---------- dates ---------- */
 const TODAY=new Date();TODAY.setHours(0,0,0,0);
