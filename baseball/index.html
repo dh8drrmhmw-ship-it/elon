@@ -294,6 +294,28 @@ td.tm button,td.tm span.t{display:inline-flex;align-items:center;gap:8px}
 .thero-stats div{display:grid;justify-items:center;font-size:11px;opacity:.9}
 .thero-stats b{font:700 20px var(--f-num)}
 .follow{position:relative;justify-self:start;padding:6px 16px;border-radius:16px;font-size:13px;font-weight:500;background:var(--on-team);color:var(--tc)}
+.fa{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:10px 14px;border-top:1px solid var(--line)}
+.fa-p{display:grid;gap:2px;min-width:0}
+.fa-p b{font-size:15px;font-weight:500}
+.fa-p small{font-size:12px;color:var(--faint)}
+.fa-p em{font-style:normal;font-weight:700;color:var(--red)}
+.fa-t{display:flex;align-items:center;gap:5px;font-size:13px;justify-self:end}
+.fa-t>span{display:flex;align-items:center;gap:5px}
+.fa-t i{font-style:normal;color:var(--faint)}
+.fa-open{padding:1px 7px;border-radius:4px;background:var(--brand-soft);color:var(--brand-ink);font-size:12px}
+.fa-n{grid-column:1/-1;font-size:12px;color:var(--muted)}
+.fa-f{display:flex;gap:8px;flex-wrap:wrap;padding:6px 14px 10px}
+.fa-f button{padding:4px 12px;border-radius:14px;font-size:12px;background:var(--soft);color:var(--muted)}
+.fa-f button[aria-pressed="true"]{background:var(--brand-soft);color:var(--brand-ink);font-weight:600}
+.awards{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:10px 14px 14px}
+.award{display:grid;justify-items:center;gap:4px;padding:14px 8px 12px;border-radius:12px;background:var(--soft);text-align:center;min-width:0}
+.award:first-child{grid-column:1/-1;background:linear-gradient(160deg,var(--mast) 0%,var(--mast-2) 120%);color:var(--on-mast)}
+.award .pshot{width:64px;height:64px;font-size:24px;background:var(--brand-soft);color:var(--brand-ink);box-shadow:none}
+.award:first-child .pshot{width:84px;height:84px;background:rgba(255,255,255,.14);color:var(--on-mast)}
+.award small{font-size:12px;color:var(--gold);font-weight:600}
+.award b{font-size:15px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.award span{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted)}
+.award:first-child span{color:var(--on-mast-dim)}
 .thero-acts{position:relative;display:flex;gap:8px;flex-wrap:wrap}
 .myteam{color:var(--on-team);background:linear-gradient(160deg,var(--tc) 0%,var(--tc) 45%,var(--mast-2) 150%)}
 .myteam-h{display:flex;align-items:center;gap:12px;width:100%;padding:14px;text-align:left;color:inherit}
@@ -922,7 +944,7 @@ function viewHome(){
   const mast=`<div class="mast-top"><div class="brand">${I.plate}本垒</div><button class="search" data-act="search">${I.search}搜索球队、新闻</button>${srcChip()}</div>
    <nav class="channels" role="tablist">${CHANNELS.map(c=>`<button role="tab" aria-selected="${c===S.ch}" data-ch="${c}">${c}</button>`).join('')}</nav>`;
   let main='<div class="wrap">';
-  if(S.ch==='转会')return {mast,main:main+txPanel(0)+'</div>'};
+  if(S.ch==='转会')return {mast,main:main+`<section class="panel"><div class="seg"><button aria-pressed="${!S.txFA}" data-txfa="0">签约与交易</button><button aria-pressed="${!!S.txFA}" data-txfa="1">自由球员</button></div></section>`+(S.txFA?faPanel():txPanel(0))+'</div>'};
   const news=allNews().filter(n=>n.ch.includes(S.ch));
   if(S.ch==='头条'||S.ch==='MLB'){
     main+=wsBanner();
@@ -977,11 +999,12 @@ function viewStats(){
   const mast=`<div class="mast-top"><h1>数据</h1>${srcChip()}</div>
    <div class="chips" style="padding-bottom:12px">${LEAGUES.map(l=>`<button class="chip" aria-pressed="${l===S.slg}" data-slg="${l}">${esc(LG_NAME[l])}</button>`).join('')}</div>`;
   const isMLB=S.slg==='MLB',live=isMLB&&Live.state==='ok';
-  const views=isMLB?[['post','季后赛'],['table','积分榜'],['lead','球员榜'],['teams','球队']]:[['table','积分榜']];
+  const views=isMLB?[['post','季后赛'],['table','积分榜'],['lead','球员榜'],['awards','奖项'],['teams','球队']]:[['table','积分榜']];
   if(!isMLB)S.sview='table';
   let main=`<div class="wrap"><section class="panel"><div class="seg">${views.map(([k,v])=>`<button aria-pressed="${S.sview===k}" data-sview="${k}">${v}</button>`).join('')}</div>`;
   if(isMLB&&!live&&S.sview!=='teams'&&S.sview!=='post')main+=offNote(S.sview==='table'?'积分榜':'球员榜');
   if(S.sview==='post')main+=bracketHTML();
+  else if(S.sview==='awards')main+=awardsHTML();
   else if(S.sview==='table'){
     if(live&&Live.standings)Live.standings.forEach(([d,rows])=>main+=standingsTable(d,rows,true));
     else if(live)main+='<div class="empty">正在读取积分榜…</div>';
@@ -1321,6 +1344,73 @@ function txPanel(limit){
     ${limit?'':`<div class="seg"><button aria-pressed="${!showAll}" data-txall="0">大联盟级别</button><button aria-pressed="${!!showAll}" data-txall="1">全部（含小联盟）</button></div>`}
     ${shown.length?txRows(shown):`<div class="empty">${showAll?'最近 30 天没有异动':'最近 30 天没有大联盟级别的签约或交易。世界大赛结束后，自由球员市场开启，这里会热闹起来。'}</div>`}
     ${limit&&list.length>limit?`<button class="lrow" data-ch="转会" style="justify-content:center;color:var(--brand-ink)">查看全部 ${list.length} 条</button>`:''}</section>`;
+}
+
+/* ---------- 休赛期：自由球员追踪 ---------- */
+const FA_SEASON=TODAY.getMonth()<4?TODAY.getFullYear()-1:TODAY.getFullYear(); // 5 月以前仍是上一个休赛期
+async function loadFA(){
+  if(Live.fa!==undefined)return;Live.fa=null;
+  try{
+    const d=await api(`/v1/people/freeAgents?season=${FA_SEASON}`,12000);
+    Live.fa=(d.freeAgents||[]).filter(x=>x.player).map(x=>({id:x.player.id,n:x.player.fullName,from:ID2AB[x.originalTeam&&x.originalTeam.id],fromN:x.originalTeam&&x.originalTeam.name,
+      to:x.newTeam&&x.newTeam.id?ID2AB[x.newTeam.id]||'':null,toN:x.newTeam&&x.newTeam.name,notes:x.notes||'',signed:x.dateSigned||'',declared:x.dateDeclared||'',
+      pos:x.position&&x.position.abbreviation,pit:x.position&&x.position.type==='Pitcher'}));
+  }catch(e){Live.fa=[];Live.faErr=1;}
+}
+const faMinor=x=>/minor league/i.test(x.notes);
+function faNote(s){
+  const m=s.match(/(\d+)-Year/i);if(m)return `${m[1]} 年合约`;
+  const T={'one-year contract':'1 年合约','minor league contract':'小联盟合约','minor league free agent':'小联盟自由球员','claimed off waivers':'被认领','free agent':'自由球员','retired':'退役','signed':'签约','re-signed':'续约'};
+  return T[s.trim().toLowerCase()]||s;
+}
+const faRating=x=>{const r=ratingOf(x.id,x.pit);return r?overallOf(r,x.pit):null;};
+function faRow(x){
+  hint(x.id,x.n,x.to||x.from);const rt=faRating(x),T=(ab,n)=>ab?tl(ab,logo(ab)+`<span>${esc(team(ab).n)}</span>`):`<span>${esc(n||'—')}</span>`;
+  return `<div class="fa"><div class="fa-p"><span class="tl" data-player="${x.id}" role="link" tabindex="0"><b>${esc(dispName(x.n))}</b></span><small>${esc(POS_CN[x.pos]||x.pos||'')}${rt?` · 综合 <em>${rt}</em>`:''}</small></div>
+    <div class="fa-t">${T(x.from,x.fromN)}<i>→</i>${x.to!=null?T(x.to,x.toN):'<span class="fa-open">待签</span>'}</div>
+    <small class="fa-n">${x.to!=null?esc((x.signed||'').slice(5).replace('-','.'))+' · ':''}${esc(faNote(x.notes))}</small></div>`;
+}
+function faPanel(){
+  if(Live.state!=='ok')return `<section class="panel"><div class="sec-h">自由球员</div>${offNote('自由球员名单')}</section>`;
+  if(Live.fa===undefined)loadFA().then(()=>{if(S.tab==='home'&&S.ch==='转会')render();});
+  if(!Live.fa)return `<section class="panel"><div class="sec-h">自由球员</div><div class="empty">${Live.faErr?'没有读到自由球员名单，请稍后再试':'正在读取…'}</div></section>`;
+  let list=Live.fa.filter(x=>S.faAll||!faMinor(x));
+  if(S.faMine&&myTeam)list=list.filter(x=>x.from===myTeam||x.to===myTeam);
+  const signed=list.filter(x=>x.to!=null).sort((a,b)=>b.signed.localeCompare(a.signed));
+  const open=list.filter(x=>x.to==null).sort((a,b)=>(faRating(b)||0)-(faRating(a)||0)||a.n.localeCompare(b.n));
+  const shown=S.faOpen?open:signed,n=S.faN||40;
+  return `<section class="panel"><div class="sec-h">${FA_SEASON} 休赛期自由球员<small>MLB 官方</small></div>
+    <div class="seg"><button aria-pressed="${!S.faOpen}" data-faopen="0">已签约 ${signed.length}</button><button aria-pressed="${!!S.faOpen}" data-faopen="1">待签 ${open.length}</button></div>
+    <div class="fa-f"><button aria-pressed="${!S.faAll}" data-faall="0">大联盟级别</button><button aria-pressed="${!!S.faAll}" data-faall="1">含小联盟</button>${myTeam?`<button aria-pressed="${!!S.faMine}" data-famine="${S.faMine?0:1}">只看${esc(team(myTeam).n)}</button>`:''}</div>
+    ${shown.length?shown.slice(0,n).map(faRow).join(''):`<div class="empty">${!S.faAll&&!Live.fa.some(x=>!faMinor(x))?'大联盟球员要到世界大赛结束后才会成为自由球员（通常在 11 月初）。<br>现在名单里主要是小联盟自由球员，可以点“含小联盟”查看。':'暂时没有'}</div>`}
+    ${shown.length>n?`<button class="lrow" data-famore="1" style="justify-content:center;color:var(--brand-ink)">再显示 40 人（共 ${shown.length} 人）</button>`:''}
+    <div class="note">${S.faOpen?'待签球员按 Statcast 综合能力排序。':'按签约日期排列，最新的在最前。'}名单来自 MLB 官方，每次打开页面时更新。</div></section>`;
+}
+
+/* ---------- 休赛期：年度奖项 ---------- */
+const AWARDS=[['WSMVP','世界大赛 MVP'],['ALMVP','美联 MVP'],['NLMVP','国联 MVP'],['ALCY','美联赛扬奖'],['NLCY','国联赛扬奖'],['ALROY','美联新人王'],['NLROY','国联新人王'],['ALMOY','美联最佳总教练'],['NLMOY','国联最佳总教练']];
+const AWARD_LISTS=[['ALSS','美联银棒奖'],['NLSS','国联银棒奖'],['ALGG','美联金手套'],['NLGG','国联金手套']];
+async function loadAwards(){
+  if(Live.awards!==undefined)return;Live.awards=null;
+  const one=async id=>{for(const yr of [SEASON,SEASON-1]){
+    const d=await api(`/v1/awards/${id}/recipients?season=${yr}`).catch(()=>null);
+    const L=(d&&d.awards||[]).filter(a=>a.player);
+    if(L.length)return [id,{season:yr,list:L.map(a=>({id:a.player.id,n:a.player.nameFirstLast||a.player.fullName||'',t:a.team&&ID2AB[a.team.id],pos:a.player.primaryPosition&&a.player.primaryPosition.abbreviation,date:a.date}))}];}
+    return [id,null];};
+  Live.awards=Object.fromEntries(await Promise.all([...AWARDS,...AWARD_LISTS].map(([id])=>one(id))));
+}
+function awardsHTML(){
+  if(Live.state!=='ok')return offNote('年度奖项');
+  if(Live.awards===undefined)loadAwards().then(()=>{if(S.tab==='stats'&&S.sview==='awards')render();});
+  if(!Live.awards)return '<div class="empty">正在读取年度奖项…</div>';
+  const A=Live.awards,old=AWARDS.filter(([id])=>A[id]&&A[id].season<SEASON).map(x=>x[1]);
+  const card=([id,label])=>{const a=A[id];if(!a)return '';const w=a.list[0],zh=zhName(w.n);hint(w.id,w.n,w.t,id.endsWith('MOY')?'Manager':undefined);
+    return `<button class="award" data-player="${w.id}">${headshot(w.id,(zh||w.n||'?').slice(0,1))}<small>${label}${a.season<SEASON?` · ${a.season}`:''}</small><b>${esc(zh||w.n)}</b>${w.t?`<span>${logo(w.t)}${esc(team(w.t).n)}</span>`:''}</button>`;};
+  let h=old.length?`<div class="notice"><span>${SEASON} 年度奖项通常在世界大赛结束后的 11 月公布。${old.length===AWARDS.filter(([id])=>A[id]).length?'目前显示的是':'尚未公布的奖项暂时显示'} ${SEASON-1} 年得主。</span></div>`:'';
+  h+=`<div class="awards">${AWARDS.map(card).join('')}</div>`;
+  AWARD_LISTS.forEach(([id,label])=>{const a=A[id];if(!a)return;
+    h+=`<div class="sec-h">${label}<small>${a.season} 年 · ${a.list.length} 人</small></div>${a.list.map(w=>{hint(w.id,w.n,w.t);return `<button class="lrow" data-player="${w.id}">${w.t?logo(w.t):''}<span>${esc(dispName(w.n))} ${w.t?`<small style="color:var(--faint)">${esc(team(w.t).n)}</small>`:''}</span><small style="color:var(--muted)">${esc(POS_CN[w.pos]||w.pos||'')}</small></button>`;}).join('')}`;});
+  return h+`<div class="note">点击得主查看球员主页。数据来源：MLB 官方</div>`;
 }
 
 /* ---------- postseason bracket ---------- */
@@ -1933,6 +2023,11 @@ document.addEventListener('click',e=>{
   if(d.tab){S.tab=d.tab;closeSheet(true);render();window.scrollTo(0,0);try{history.replaceState(null,'','#'+d.tab)}catch(_){}}
   else if(d.ch){S.tab='home';S.ch=d.ch;closeSheet(true);render();window.scrollTo(0,0);}
   else if(d.txall){S.txAll=d.txall==='1';render();}
+  else if(d.txfa){S.txFA=d.txfa==='1';render();}
+  else if(d.faopen){S.faOpen=d.faopen==='1';S.faN=40;render();}
+  else if(d.faall){S.faAll=d.faall==='1';S.faN=40;render();}
+  else if(d.famine){S.faMine=d.famine==='1';S.faN=40;render();}
+  else if(d.famore){S.faN=(S.faN||40)+40;render();}
   else if(d.lg){S.lg=d.lg;render();}
   else if(d.day!==undefined){S.day=+d.day;render();}
   else if(d.slg){S.slg=d.slg;render();}
