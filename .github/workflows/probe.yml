@@ -1,0 +1,14 @@
+name: probe
+on: pull_request
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          A=https://statsapi.mlb.com/api
+          for u in "/v1/people/freeAgents?season=2026" "/v1/people/freeAgents?season=2025" \
+                   "/v1/awards/ALMVP/recipients?season=2025" "/v1/awards/NLCYA/recipients?season=2025" "/v1/awards/ALROY/recipients?season=2025" \
+                   "/v1/awards/ALMVP/recipients?season=2026" "/v1/awards?sportId=1" ; do
+            echo "=== $u"; curl -s "$A$u" | head -c 1800; echo; done
+          echo "=== FA 2025 count + sample signed"; curl -s "$A/v1/people/freeAgents?season=2025" | python3 -c "import json,sys;d=json.load(sys.stdin);f=d.get('freeAgents',[]);print(len(f));print(json.dumps([x for x in f if x.get('newTeam')][:2]))"
+          echo "=== awards ids"; curl -s "$A/v1/awards?sportId=1" | python3 -c "import json,sys;d=json.load(sys.stdin);[print(a['id'],a.get('name')) for a in d.get('awards',[]) if any(k in a['id'] for k in ['MVP','CY','ROY','MOY','GG','SS','HR','RELIEVER','COMEBACK','WS'])]" | head -60
