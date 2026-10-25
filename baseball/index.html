@@ -1643,7 +1643,7 @@ function radarSVG(axes,vs){
     const val=vs?`<tspan fill="var(--brand)">${v}</tspan><tspan fill="var(--faint)" font-weight="400"> : </tspan><tspan fill="var(--red)">${vs[i]}</tspan>`
       :`<tspan fill="${v>=85?'var(--red)':v>=70?'var(--gold)':'var(--muted)'}">${v}</tspan>`;
     return `<text x="${x.toFixed(1)}" y="${(y-3).toFixed(1)}" text-anchor="${anchor}" font-size="13" fill="var(--muted)">${k}</text><text x="${x.toFixed(1)}" y="${(y+14).toFixed(1)}" text-anchor="${anchor}" font-size="15" font-weight="700">${val}</text>`;}).join('');
-  return `<svg class="radar" viewBox="0 0 340 300" role="img" aria-label="能力雷达图">${[1,.75,.5,.25].map(f=>`<polygon points="${ring(f)}" fill="none" stroke="var(--line)" stroke-width="1"/>`).join('')}
+  return `<svg class="radar" viewBox="${vs?'-30 0 400 300':'0 0 340 300'}" role="img" aria-label="能力雷达图">${[1,.75,.5,.25].map(f=>`<polygon points="${ring(f)}" fill="none" stroke="var(--line)" stroke-width="1"/>`).join('')}
     ${axes.map((_,i)=>{const [x,y]=pt(i,R);return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--line)"/>`;}).join('')}
     ${series(axes.map(a=>a[1]),'var(--brand)',vs?.18:.28)}${vs?series(vs,'var(--red)',.18):''}${lab}</svg>`;
 }
