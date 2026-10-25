@@ -3,6 +3,9 @@ name: 部署 GitHub Pages
 on:
   push:
     branches: [main]
+  schedule:
+    # 每天北京时间 16:17 重新部署一次，顺带更新能力值
+    - cron: '17 8 * * *'
   workflow_dispatch:
 
 permissions:
@@ -24,6 +27,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: 生成完整网页
         run: ./scripts/build-pages.sh _site
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 抓取 Baseball Savant 百分位
+        continue-on-error: true
+        run: node scripts/fetch-ratings.mjs _site/baseball/ratings.json
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

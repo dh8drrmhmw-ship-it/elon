@@ -1,0 +1,24 @@
+name: 检查能力值抓取
+
+on:
+  pull_request:
+    paths:
+      - scripts/fetch-ratings.mjs
+      - .github/workflows/ratings-check.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 抓取 Baseball Savant 百分位
+        run: node scripts/fetch-ratings.mjs ratings.json
+      - name: 查看结果
+        run: ls -l ratings.json && head -c 600 ratings.json

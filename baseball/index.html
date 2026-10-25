@@ -356,6 +356,12 @@ td.tm button,td.tm span.t{display:inline-flex;align-items:center;gap:8px}
 .traits span{display:flex;align-items:center;gap:8px}
 .traits em{font-style:normal;font-size:11px;padding:2px 5px;border-radius:3px;color:var(--on-team);background:var(--red)}
 .traits em.weak{background:var(--brand)}
+.abars{display:grid;grid-template-columns:1fr 1fr;gap:12px 18px;padding:6px 14px 14px}
+.abar{display:grid;grid-template-columns:1fr auto;gap:4px 8px;font-size:13px;min-width:0}
+.abar span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
+.abar b{font:600 15px var(--f-num)}
+.abar i{grid-column:1/-1;height:5px;border-radius:3px;background:var(--line);overflow:hidden}
+.abar i::before{content:"";display:block;height:100%;width:var(--w);background:var(--c)}
 .tx{display:flex;align-items:center;gap:10px;padding:11px 14px;border-top:1px solid var(--line);font-size:14px}
 .tx-d{flex:none;width:76px;display:grid}
 .tx-d b{font:600 16px var(--f-num);color:var(--muted)}
@@ -1177,20 +1183,36 @@ function heightCm(h){const m=String(h||'').match(/(\d+)'\s*(\d+)/);return m?Math
 const HIT=[['avg','打击率'],['homeRuns','全垒打'],['rbi','打点'],['ops','OPS'],['hits','安打'],['obp','上垒率'],['stolenBases','盗垒'],['gamesPlayed','出赛']];
 const PIT=[['era','防御率'],['wins','胜'],['losses','负'],['strikeOuts','三振'],['inningsPitched','局数'],['whip','WHIP'],['saves','救援'],['gamesPlayed','出赛']];
 function tiles(stat,defs){return `<div class="tiles">${defs.map(([k,v])=>`<div><b>${esc(stat[k]!=null?stat[k]:'—')}</b>${v}</div>`).join('')}</div>`;}
-const ipNum=x=>{const [a,b]=String(x||'0').split('.');return (+a||0)+(+b||0)/3;};
-const lin=(v,lo,hi)=>Math.round(40+59*Math.max(0,Math.min(1,(v-lo)/(hi-lo))));
-// Ratings are this page's own conversion of season stats onto a 40-99 scale, not an official rating.
-function ratingsFor(gp,st){
-  const n=x=>parseFloat(x)||0;
-  if(!st)return null;
-  if(gp==='hitting'){
-    if(n(st.atBats)<60)return {few:1};
-    const avg=n(st.avg),iso=n(st.slg)-avg,bbk=n(st.baseOnBalls)/Math.max(1,n(st.strikeOuts));
-    return {axes:[['打击',lin(avg,.200,.320)],['力量',lin(iso,.080,.300)],['上垒',lin(n(st.obp),.270,.420)],['速度',lin(n(st.stolenBases),0,40)],['选球',lin(bbk,.15,1)],['出赛',lin(n(st.gamesPlayed),30,160)]]};
-  }
-  const ip=ipNum(st.inningsPitched);if(ip<15)return {few:1};
-  const k9=n(st.strikeOuts)*9/ip,bb9=n(st.baseOnBalls)*9/ip,hr9=n(st.homeRuns)*9/ip;
-  return {axes:[['压制',lin(5.5-n(st.era),0,3.5)],['三振',lin(k9,6,12.5)],['控球',lin(4.5-bb9,0,3.2)],['WHIP',lin(1.55-n(st.whip),0,.65)],['防全垒打',lin(1.8-hr9,0,1.3)],['耐投',lin(ip,30,200)]]};
+/* ---------- 能力值：Baseball Savant 百分位排名（GitHub Actions 每天抓取成 ratings.json） ---------- */
+const RT={state:'loading',data:null};
+fetch('ratings.json',{cache:'no-cache'}).then(r=>r.ok?r.json():Promise.reject(r.status)).then(d=>{RT.data=d;RT.state='ok';})
+  .catch(()=>{RT.state='none';}).finally(()=>{if(S.sheet&&S.sheet.kind==='player')refreshSheet();});
+const ratingOf=(id,pitcher)=>RT.data&&(pitcher?RT.data.pitchers:RT.data.batters)[id]||null;
+const PCT_CN={xwoba:'预期加权上垒率 xwOBA',xba:'预期打击率 xBA',xslg:'预期长打率 xSLG',xiso:'预期纯长打率 xISO',xobp:'预期上垒率 xOBP',brl_percent:'强击率 Barrel%',
+  exit_velocity:'平均击球初速',max_ev:'最快击球初速',hard_hit_percent:'强击球率 Hard-Hit%',k_percent:'三振率',bb_percent:'保送率',whiff_percent:'挥空率',chase_percent:'追打坏球率',
+  arm_strength:'传球臂力',sprint_speed:'冲刺速度',oaa:'守备价值 OAA',bat_speed:'挥棒速度',squared_up_rate:'扎实击球率',xera:'预期防御率 xERA',fb_velocity:'直球球速',fb_spin:'直球转速',curve_spin:'曲球转速'};
+const PCT_SHORT={xwoba:'xwOBA',xba:'预期打击率',xslg:'预期长打率',xiso:'纯长打',xobp:'预期上垒',brl_percent:'强击率',exit_velocity:'击球初速',max_ev:'最快初速',hard_hit_percent:'强击球率',
+  k_percent:'三振率',bb_percent:'保送率',whiff_percent:'挥空率',chase_percent:'追打坏球',arm_strength:'臂力',sprint_speed:'冲刺速度',oaa:'守备价值',bat_speed:'挥棒速度',squared_up_rate:'扎实击球',
+  xera:'预期防御率',fb_velocity:'直球球速',fb_spin:'直球转速',curve_spin:'曲球转速'};
+const avgOf=(a,...k)=>{const v=k.map(x=>a[x]).filter(x=>typeof x==='number');return v.length?Math.round(v.reduce((x,y)=>x+y,0)/v.length):null;};
+function pctAxes(a,pitcher){
+  return (pitcher?[['压制',avgOf(a,'xera','xwoba')],['三振',avgOf(a,'k_percent','whiff_percent')],['控球',a.bb_percent],['球速',a.fb_velocity],['诱打',a.chase_percent],['防强击',avgOf(a,'hard_hit_percent','brl_percent','exit_velocity')]]
+    :[['打击',avgOf(a,'xba','squared_up_rate')],['力量',avgOf(a,'xslg','brl_percent','max_ev')],['击球强度',avgOf(a,'exit_velocity','hard_hit_percent','bat_speed')],['选球',avgOf(a,'bb_percent','chase_percent','k_percent','whiff_percent')],['速度',a.sprint_speed],['守备',avgOf(a,'oaa','arm_strength')]]).filter(x=>x[1]!=null);
+}
+const PCT_ORDER_B=['xwoba','xba','xslg','xiso','xobp','brl_percent','exit_velocity','max_ev','hard_hit_percent','bat_speed','squared_up_rate','k_percent','bb_percent','whiff_percent','chase_percent','sprint_speed','oaa','arm_strength'];
+const PCT_ORDER_P=['xera','xwoba','xba','xslg','fb_velocity','fb_spin','curve_spin','k_percent','bb_percent','whiff_percent','chase_percent','brl_percent','hard_hit_percent','exit_velocity','arm_strength'];
+// Savant's own palette: blue for low percentiles, red for high
+const pctColor=v=>v>=90?'#d22d49':v>=70?'#e8776f':v>=40?'#9aa3b5':v>=20?'#7b9ad6':'#3a65c4';
+function ratingHTML(a,pitcher){
+  const axes=pctAxes(a,pitcher),keys=(pitcher?PCT_ORDER_P:PCT_ORDER_B).filter(k=>a[k]!=null);
+  if(keys.length<3)return `<section class="panel"><div class="empty">${pitcher?'投球':'打击'}样本不足，Statcast 没有给出排名</div></section>`;
+  const overall=Math.round(keys.reduce((x,k)=>x+a[k],0)/keys.length);
+  const sorted=keys.slice().sort((x,y)=>a[y]-a[x]),strong=sorted.filter(k=>a[k]>=90).slice(0,4),weak=sorted.filter(k=>a[k]<=15).slice(-3);
+  return `<section class="panel"><div class="overall">${pitcher?'投球':'打击'}综合<b>${overall}</b></div>${axes.length>=3?radarSVG(axes):''}
+    ${strong.length||weak.length?`<div class="traits">${strong.map(k=>`<span><em>强项</em>${PCT_SHORT[k]}</span>`).join('')}${weak.map(k=>`<span><em class="weak">弱项</em>${PCT_SHORT[k]}</span>`).join('')}</div>`:''}</section>
+    <section class="panel"><div class="sec-h">Statcast 百分位<small>${RT.data.year} 赛季</small></div><div class="abars" style="grid-template-columns:1fr">${keys.map(k=>
+      `<div class="abar"><span>${PCT_CN[k]}</span><b style="color:${pctColor(a[k])}">${a[k]}</b><i style="--w:${a[k]}%;--c:${pctColor(a[k])}"></i></div>`).join('')}</div>
+    <div class="note">数据来源：Baseball Savant（MLB 官方 Statcast）· 更新于 ${esc(RT.data.updated)}。数字是联盟百分位：90 表示比 90% 的${pitcher?'投手':'打者'}好，越红越好、越蓝越差。综合为各项百分位的平均值。</div></section>`;
 }
 function radarSVG(axes){
   const cx=170,cy=150,R=92,N=axes.length,pt=(i,r)=>{const a=-Math.PI/2+i*2*Math.PI/N;return [cx+r*Math.cos(a),cy+r*Math.sin(a)];};
@@ -1268,17 +1290,14 @@ function sheetPlayer(id,tab){
     }
     both.forEach(gp=>h+=yearsHTML(L,gp));
   }else if(tab==='rating'){
-    both.forEach(gp=>{
-      let r=ratingsFor(gp,L.st[gp+'_season']),src=`${SEASON} 赛季`;
-      if(!r||r.few){r=ratingsFor(gp,L.st[gp+'_career']);src='生涯';}
-      const kind=gp==='pitching'?'投球':'打击';
-      if(!r||r.few){h+=`<section class="panel"><div class="sec-h">${kind}能力值</div><div class="empty">出场太少，暂时无法换算</div></section>`;return;}
-      const avgv=Math.round(r.axes.reduce((a,x)=>a+x[1],0)/r.axes.length);
-      const sorted=r.axes.slice().sort((a,b)=>b[1]-a[1]),strong=sorted.filter(x=>x[1]>=80).slice(0,3),weak=sorted.filter(x=>x[1]<=55).slice(-2);
-      h+=`<section class="panel"><div class="overall">${both.length>1?kind:'综合能力'}<b>${avgv}</b></div>${radarSVG(r.axes)}
-        ${strong.length||weak.length?`<div class="traits">${strong.map(x=>`<span><em>强项</em>${x[0]}</span>`).join('')}${weak.map(x=>`<span><em class="weak">弱项</em>${x[0]}</span>`).join('')}</div>`:''}
-        <div class="note">按${src}数据换算成 40–99 分，仅供参考，不是官方评分。${gp==='pitching'?'压制看防御率，控球看每九局保送，耐投看投球局数。':'力量看长打率减打击率，选球看保送与三振之比。'}</div></section>`;
-    });
+    if(RT.state==='loading')h+=`<section class="panel"><div class="empty">正在读取能力值…</div></section>`;
+    else if(RT.state!=='ok')h+=`<section class="panel"><div class="empty">能力值来自 Baseball Savant（MLB 官方 Statcast），由网站每天自动更新。<br>这个页面暂时没有能力值数据。</div></section>`;
+    else{
+      const kinds=pos==='TWP'?[false,true]:[L.grp==='pitching'];
+      const got=kinds.map(pt=>[pt,ratingOf(id,pt)]).filter(x=>x[1]);
+      if(!got.length)h+=`<section class="panel"><div class="empty">${RT.data.year} 赛季 Statcast 没有这位球员的排名（出场太少或没有出赛）</div></section>`;
+      else got.forEach(([pt,a])=>h+=ratingHTML(a,pt));
+    }
   }else if(tab==='info'){
     h+=`<section class="panel"><div class="sec-h">基本资料</div><dl class="kv"><dt>姓名</dt><dd>${esc(zh||en)}</dd><dt>英文全名</dt><dd>${esc(p.fullFMLName||en)}</dd>
       ${p.birthDate?`<dt>生日</dt><dd>${esc(p.birthDate)}${p.currentAge?`（${p.currentAge} 岁）`:''}</dd>`:''}
