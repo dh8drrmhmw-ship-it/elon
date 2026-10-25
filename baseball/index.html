@@ -363,11 +363,11 @@ td.tm button,td.tm span.t{display:inline-flex;align-items:center;gap:8px}
 .abar i{grid-column:1/-1;height:5px;border-radius:3px;background:var(--line);overflow:hidden}
 .abar i::before{content:"";display:block;height:100%;width:var(--w);background:var(--c)}
 .cmp-h{display:flex;justify-content:space-between;align-items:center;padding:12px 14px 4px;font-size:14px}
-.cmp-h span{display:flex;align-items:center;gap:8px}
+.cmp-h>span{display:flex;align-items:center;gap:8px}
 .cmp{display:grid;grid-template-columns:34px 1fr 76px 1fr 34px;align-items:center;gap:6px;padding:7px 14px}
 .cmp b{font:600 16px var(--f-num);font-variant-numeric:tabular-nums}
 .cmp b:last-child{text-align:right}
-.cmp span{font-size:13px;color:var(--muted);text-align:center}
+.cmp>span{font-size:13px;color:var(--muted);text-align:center}
 .cmp .bar{height:8px;border-radius:4px;background:var(--line);overflow:hidden;display:flex}
 .cmp .bar.l{justify-content:flex-end}
 .cmp .bar i{display:block;height:100%;width:var(--w);background:var(--c)}
@@ -912,9 +912,8 @@ function diamond(b){
 const CMP_ROWS=[['安打','bs','hits'],['全垒打','bs','homeRuns'],['二垒安打','bs','doubles'],['打点','bs','rbi'],['保送','bs','baseOnBalls'],['三振','bs','strikeOuts'],
   ['盗垒','bs','stolenBases'],['残垒','bs','leftOnBase'],['失误','fs','errors'],['投手用球数','ps','numberOfPitches']];
 function cmpHTML(g,B){
-  const ca=team(g.a.t).c,ch=team(g.h.t).c;
   return `<section class="panel"><div class="cmp-h"><span>${logo(g.a.t)}${esc(team(g.a.t).n)}</span><span>${esc(team(g.h.t).n)}${logo(g.h.t)}</span></div>${CMP_ROWS.map(([label,grp,k])=>{
-    const a=+B.a[grp][k]||0,h=+B.h[grp][k]||0,tot=a+h||1;
+    const a=+B.a[grp][k]||0,h=+B.h[grp][k]||0,tot=a+h||1,ca=a>=h?'var(--brand)':'var(--faint)',ch=h>=a?'var(--brand)':'var(--faint)';
     return `<div class="cmp"><b>${a}</b><div class="bar l"><i style="--w:${a/tot*100}%;--c:${ca}"></i></div><span>${label}</span><div class="bar"><i style="--w:${h/tot*100}%;--c:${ch}"></i></div><b>${h}</b></div>`;}).join('')}
     <div class="note">数据来源：MLB 官方 boxscore</div></section>`;
 }
