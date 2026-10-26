@@ -1,0 +1,23 @@
+name: probe
+on: pull_request
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          A=https://statsapi.mlb.com/api
+          PK=$(curl -s "$A/v1/schedule/postseason?season=2026&sportId=1" | python3 -c "import json,sys;d=json.load(sys.stdin);g=[x for day in d['dates'] for x in day['games'] if x['status']['abstractGameState']=='Final'];print(g[-1]['gamePk'])")
+          echo "PK=$PK"
+          echo "=== playback names"; curl -s "$A/v1/game/$PK/content" | python3 -c "
+          import json,sys;d=json.load(sys.stdin);it=d['highlights']['highlights']['items']
+          print(len(it));
+          for p in it[0]['playbacks']: print(p['name'],p.get('width'),p.get('height'),p['url'][:120])
+          for x in it[:12]: print('|',x.get('headline'),'|',x.get('duration'),'|',[k['value'] for k in x.get('keywordsAll',[]) if k['type'] in('taxonomy','player_id','game_pk')][:6], '|guid', [k['value'] for k in x.get('keywordsAll',[]) if 'play' in k['type'].lower()][:2])
+          "
+          echo "=== winprob"; curl -s "$A/v1/game/$PK/winProbability?fields=homeTeamWinProbability,awayTeamWinProbability,homeTeamWinProbabilityAdded,atBatIndex,about,inning,halfInning,result,description" | head -c 1200; echo
+          echo "=== hitData"; curl -s "$A/v1.1/game/$PK/feed/live" | python3 -c "
+          import json,sys;d=json.load(sys.stdin);ps=d['liveData']['plays']['allPlays']
+          hr=[p for p in ps if p['result'].get('eventType')=='home_run'][:1] or [p for p in ps if p['about'].get('isScoringPlay')][:1]
+          p=hr[0];print(json.dumps(p['result']));print(json.dumps(p['playEvents'][-1].get('hitData')));print(p['playEvents'][-1].get('playId'));print(p['atBatIndex'])
+          print('topPerformers', json.dumps(d['liveData']['boxscore'].get('topPerformers',[]))[:800])
+          "
