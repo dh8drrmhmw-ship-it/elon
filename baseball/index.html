@@ -513,6 +513,18 @@ span.tl{display:inline-flex;align-items:center;gap:6px;min-width:0}
 /* AI */
 .ai-btn{flex:none;padding:5px 12px;border-radius:14px;background:var(--brand-soft);color:var(--brand-ink);font-size:13px;font-weight:500}
 .ai-btn[disabled]{opacity:.55;cursor:default}
+.term{text-decoration:underline dotted;text-underline-offset:3px;text-decoration-color:var(--faint);cursor:help}
+.gloss{position:fixed;inset:0;z-index:70;display:flex;align-items:flex-end;justify-content:center;background:rgba(6,20,46,.35)}
+.gloss[hidden]{display:none}
+.gloss-c{width:100%;max-width:480px;background:var(--card);color:var(--fg);border-radius:16px 16px 0 0;padding:18px 18px calc(18px + env(safe-area-inset-bottom,0px));box-shadow:0 -6px 24px rgba(0,0,0,.18)}
+.gloss-c b{display:block;font-size:17px;margin-bottom:8px}
+.gloss-c p{margin:0 0 16px;font-size:15px;line-height:1.7;color:var(--muted)}
+.gloss-c button{width:100%;padding:11px;border-radius:10px;background:var(--brand);color:#fff;font-size:15px;font-weight:600}
+.art-acts{display:flex;gap:10px;margin:4px 0 16px}
+.sheet-h .share{display:grid;place-items:center;height:40px}
+.sheet-h .share svg{width:20px;height:20px}
+.ptr{position:fixed;top:calc(8px + env(safe-area-inset-top,0px));left:50%;transform:translate(-50%,0);z-index:65;padding:6px 14px;border-radius:16px;background:var(--fg);color:var(--card);font-size:13px;opacity:0;pointer-events:none;transition:opacity .15s}
+button.menu-row{text-align:left;color:inherit}
 .ai-out{padding:4px 14px 14px;white-space:pre-wrap;font-size:15px;line-height:1.85;margin:0}
 .ai-out .ai-title{display:block;font:700 18px/1.4 var(--f-display);margin-bottom:6px}
 .ai-meta{padding:0 14px 12px;font-size:12px;color:var(--faint)}
@@ -544,6 +556,7 @@ const store={
 
 /* ---------- icons ---------- */
 const I={
+  share:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 8l5-5 5 5M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/></svg>',
   plate:'<svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h16v8l-8 8-8-8z"/></svg>',
   seam:'<svg class="seam" viewBox="0 0 100 100" fill="none" stroke="currentColor"><circle cx="50" cy="50" r="46" stroke-width="4"/><path d="M26 10c10 10 14 24 14 40s-4 30-14 40M74 10c-10 10-14 24-14 40s4 30 14 40" stroke-width="3" stroke-dasharray="5 4"/></svg>',
   search:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
@@ -756,9 +769,9 @@ async function loadBox(pk){
 async function boot(){
   try{await loadSchedule();Live.state='ok';}
   catch(e){Live.state='off';}
-  render();
-  if(Live.state!=='ok')return;
-  Promise.all([loadTx().catch(()=>{Live.tx=[];}),loadScoring().catch(()=>{}),loadStandings().catch(()=>{}),loadLeaders().catch(()=>{}),loadPost().catch(()=>{Live.post=[];})]).then(()=>{if(S.tab==='stats'||S.tab==='home')render();refreshSheet();});
+  render();openDeep(1);
+  if(Live.state!=='ok'){openDeep(2);return;}
+  Promise.all([loadTx().catch(()=>{Live.tx=[];}),loadScoring().catch(()=>{}),loadStandings().catch(()=>{}),loadLeaders().catch(()=>{}),loadPost().catch(()=>{Live.post=[];})]).then(()=>{openDeep(2);if(S.tab==='stats'||S.tab==='home')render();refreshSheet();});
   setInterval(async()=>{
     if(!Live.games||!Live.games.some(g=>g.status==='live'))return;
     try{await loadSchedule();await Promise.all([loadPost().catch(()=>{}),loadScoring().catch(()=>{})]);}catch(e){return;}
@@ -833,7 +846,6 @@ const NEWS=[
   body:['每年春夏两季的甲子园大会，是日本最受关注的体育赛事之一。','很多职业球员在高中时期就已经被球探关注，选秀会上高中生的比例一直很高。','这一套从校园到职业的选拔体系，是日本棒球长期保持竞争力的基础。']}
 ];
 const CHANNELS=['头条','战报','转会','MLB','科普','日职','韩职','中职','中国'];
-const COMMENTS={n2:[['滚地球专家','终于搞懂OPS了，收藏','12分钟前',86],['北境枫叶','求一篇讲WAR的','40分钟前',31]],n3:[['投手丘的风','后援投手连投三天真的扛不住','1小时前',57]]};
 
 const SAMPLE_STANDINGS={
  MLB:[['美联（示例）',[['TOR',94,68],['NYY',94,68],['SEA',90,72],['BOS',89,73],['CLE',88,74],['DET',87,75],['HOU',87,75]]],
@@ -857,8 +869,9 @@ const S={tab:'home',ch:'头条',day:0,lg:'全部',slg:'MLB',sview:[9,10].include
 let follows=store.get('follows',['LAD','TOR']).filter(team);
 let myTeam=MLB[store.get('myteam','')]?store.get('myteam',''):'';
 let liked=new Set(store.get('liked',[]));
+const firstDay=store.get('first',null)||(store.set('first',ymd(new Date())),ymd(new Date()));
 let theme=store.get('theme','system');
-const myComments={};
+const myComments=store.get('comments',{});
 function applyTheme(){const r=document.documentElement;if(theme==='system')delete r.dataset.theme;else r.dataset.theme=theme;}
 applyTheme();
 
@@ -898,7 +911,7 @@ function art(n){
   if(n.art.length===2){const[a,b]=n.art;return `<div class="art" style="--c1:${team(a).c};--c2:${team(b).c}">${I.seam}${logo(a)}<i>VS</i>${logo(b)}</div>`;}
   return `<div class="art solo">${I.seam}<span class="label">${esc(n.art[0])}</span></div>`;
 }
-function newsMeta(n){return `<div class="news-m">${n.tag?`<span class="tag${n.hot?' hot':''}">${esc(n.tag)}</span>`:''}<span>${esc(n.src)}</span><span>${esc(n.time)}</span>${n.auto?'':`<span>${n.cm+(myComments[n.id]||[]).length}评</span>`}</div>`;}
+function newsMeta(n){return `<div class="news-m">${n.tag?`<span class="tag${n.hot?' hot':''}">${esc(n.tag)}</span>`:''}<span>${esc(n.src)}</span>${n.auto?`<span>${esc(n.time)}</span>`:''}${(myComments[n.id]||[]).length?`<span>${myComments[n.id].length}评</span>`:''}</div>`;}
 function newsRow(n){return `<button class="news" data-news="${n.id}"><div class="news-tx"><div class="news-t">${esc(n.title)}</div>${newsMeta(n)}</div>${art(n)}</button>`;}
 function miniCard(g){
   const ra=runs(g.a),rh=runs(g.h),sc=hasScore(g),fin=g.status==='final';
@@ -941,7 +954,7 @@ const SAMPLE_CH={'日职':'日本职棒','韩职':'韩国职棒','中职':'中�
 function viewHome(){
   if(Live.state==='ok'){const todo=recaps().slice(0,6).filter(r=>Live.content[r.pk]===undefined);
     if(todo.length)Promise.all(todo.map(r=>loadContent(r.pk))).then(()=>{if(S.tab==='home')render();});}
-  const mast=`<div class="mast-top"><div class="brand">${I.plate}本垒</div><button class="search" data-act="search">${I.search}搜索球队、新闻</button>${srcChip()}</div>
+  const mast=`<div class="mast-top"><div class="brand">${I.plate}本垒</div><button class="search" data-act="search">${I.search}搜索球队、球员、新闻</button>${srcChip()}</div>
    <nav class="channels" role="tablist">${CHANNELS.map(c=>`<button role="tab" aria-selected="${c===S.ch}" data-ch="${c}">${c}</button>`).join('')}</nav>`;
   let main='<div class="wrap">';
   if(S.ch==='转会')return {mast,main:main+`<section class="panel"><div class="seg"><button aria-pressed="${!S.txFA}" data-txfa="0">签约与交易</button><button aria-pressed="${!!S.txFA}" data-txfa="1">自由球员</button></div></section>`+(S.txFA?faPanel():txPanel(0))+'</div>'};
@@ -987,7 +1000,7 @@ function viewGames(){
 function standingsTable(title,rows,live){
   const sorted=live?rows:rows.slice().sort((x,y)=>y[1]/(y[1]+y[2])-x[1]/(x[1]+x[2]));
   const [,lw,ll]=sorted[0];
-  return `<div class="sec-h">${esc(title)}</div><div class="tbl-wrap"><table><thead><tr><th>球队</th><th>胜</th><th>负</th><th>胜率</th><th>胜差</th></tr></thead><tbody>${sorted.map(([t,w,l,gb],i)=>{
+  return `<div class="sec-h">${esc(title)}</div><div class="tbl-wrap"><table><thead><tr><th>球队</th><th>胜</th><th>负</th><th>${term('胜率')}</th><th>${term('胜差')}</th></tr></thead><tbody>${sorted.map(([t,w,l,gb],i)=>{
     const g=gb!=null?gb:(((lw-w)+(l-ll))/2||'-');const pct=w+l?(w/(w+l)).toFixed(3).replace(/^0/,''):'.000';
     const name=MLB[t]?`<button data-teamp="${t}"><i class="rk${i<3?' top':''}">${i+1}</i>${logo(t)}${esc(team(t).n)}</button>`:`<span class="t"><i class="rk${i<3?' top':''}">${i+1}</i>${logo(t)}${esc(team(t).n)}</span>`;
     return `<tr><td class="tm">${name}</td><td>${w}</td><td>${l}</td><td>${pct}</td><td>${typeof g==='number'?g.toFixed(1):g}</td></tr>`;}).join('')}</tbody></table></div>`;
@@ -1013,7 +1026,7 @@ function viewStats(){
   }else if(S.sview==='lead'){
     const L=live?Live.leaders:SAMPLE_LEADERS;
     if(!L)main+='<div class="empty">正在读取球员榜…</div>';
-    else L.forEach(([name,abbr,rows])=>{main+=`<div class="leader"><h3>${esc(name)}<small>${abbr}</small></h3>${rows.map(([p,t,v,id],i)=>{hint(id,p,t);return `<button class="lrow" ${id?`data-player="${id}"`:''}><i class="rk${i===0?' top':''}">${i+1}</i>${t?tl(t,logo(t)):''}<span>${esc(dispName(p))} ${t?tl(t,`<small style="color:var(--faint)">${esc(team(t).n)}</small>`):''}</span><b>${esc(v)}</b></button>`;}).join('')}</div>`;});
+    else L.forEach(([name,abbr,rows])=>{main+=`<div class="leader"><h3>${term(esc(name),name)}<small>${abbr}</small></h3>${rows.map(([p,t,v,id],i)=>{hint(id,p,t);return `<button class="lrow" ${id?`data-player="${id}"`:''}><i class="rk${i===0?' top':''}">${i+1}</i>${t?tl(t,logo(t)):''}<span>${esc(dispName(p))} ${t?tl(t,`<small style="color:var(--faint)">${esc(team(t).n)}</small>`):''}</span><b>${esc(v)}</b></button>`;}).join('')}</div>`;});
     main+=`<div class="note">点击球员查看个人主页；暂无中文译名的球员显示英文原名。${live?`数据来源：MLB 官方 · ${SEASON} 赛季`:'示例数据'}</div>`;
   }else main+=teamGrid();
   return {mast,main:main+'</section></div>'};
@@ -1025,16 +1038,18 @@ function postHTML(p){
 }
 function viewCircle(){
   const mast=`<div class="mast-top"><h1>圈子</h1></div><div class="mast-pad"></div>`;
-  const main=`<div class="wrap"><section class="panel"><div class="sec-h">球队圈<small>左右滑动</small></div><div class="circles">${CIRCLES.map(t=>`<button class="circle" data-teamp="${t}">${logo(t,'lg')}<span>${esc(team(t).n)}</span><small>${follows.includes(t)?'已关注':'进入'}</small></button>`).join('')}</div></section>
+  const main=`<div class="wrap"><section class="panel"><div class="notice"><span>圈子目前是<b>示例内容</b>：下面的帖子来自示例账号，你的点赞只保存在这台设备上，别人看不到。真正的球迷社区需要服务器，会在后续版本接入。</span></div></section><section class="panel"><div class="sec-h">球队圈<small>左右滑动</small></div><div class="circles">${CIRCLES.map(t=>`<button class="circle" data-teamp="${t}">${logo(t,'lg')}<span>${esc(team(t).n)}</span><small>${follows.includes(t)?'已关注':'进入'}</small></button>`).join('')}</div></section>
    <section class="panel">${POSTS.map(postHTML).join('')}</section></div>`;
   return {mast,main};
 }
 function viewMe(){
   const mast=`<div class="mast-top"><h1>我的</h1></div>`;
   const mlbFollow=Object.keys(MLB).sort((a,b)=>(follows.includes(b)-follows.includes(a)));
-  const main=`<div class="profile"><span class="avatar">棒</span><div><b>棒球新手</b><small>示例账号 · 看球第 37 天</small></div></div>
+  const main=`<div class="profile"><span class="avatar">棒</span><div><b>本垒球迷</b><small>看球第 ${Math.max(1,Math.round((TODAY-new Date(firstDay))/864e5)+1)} 天 · 你的数据只保存在这台设备上</small></div></div>
    <div class="wrap">
-   <section class="panel"><div class="counts"><div><b>${follows.length}</b>关注球队</div><div><b>${liked.size}</b>点赞</div><div><b>${Object.values(myComments).flat().length}</b>评论</div><div><b>12</b>收藏</div></div></section>
+   <section class="panel"><div class="counts"><div><b>${follows.length}</b>关注球队</div><div><b>${liked.size}</b>点赞</div><div><b>${Object.values(myComments).flat().length}</b>评论</div><div><b>${favs.length}</b>收藏</div></div></section>
+   <section class="panel"><div class="sec-h">我的收藏<small>${favs.length?favs.length+' 篇':''}</small></div>${favs.length?favs.map(f=>`<button class="lrow" data-news="${esc(f.id)}"><span>${esc(f.title)}</span><small style="color:var(--faint)">${esc(f.date.slice(5))}</small></button>`).join(''):'<div class="empty">在文章底部点「收藏」，就会出现在这里</div>'}</section>
+   <section class="panel">${standalone()?'':'<button class="menu-row" data-act="install" style="width:100%"><span>添加到手机桌面</span><small>像 App 一样打开 ›</small></button>'}<button class="menu-row" data-news="gl" style="width:100%"><span>棒球术语词典</span><small>看不懂的缩写都在这里 ›</small></button></section>
    <section class="panel"><div class="sec-h">我的主队<small>${myTeam?`${esc(team(myTeam).n)} · 再点一次取消`:'选一支显示在头条顶部'}</small></div><div class="circles">${Object.keys(MLB).sort((a,b)=>(b===myTeam)-(a===myTeam)).map(t=>`<button class="circle" data-myteam="${t}" aria-pressed="${myTeam===t}">${logo(t,'lg')}<span>${esc(team(t).n)}</span>${myTeam===t?'<small>★ 主队</small>':''}</button>`).join('')}</div></section>
    <section class="panel"><div class="sec-h">关注的美职棒球队<small>点击切换关注</small></div><div class="follow-grid">${mlbFollow.map(t=>`<button class="fbtn" data-follow="${t}" aria-pressed="${follows.includes(t)}">${logo(t)}<span>${esc(team(t).n)}</span></button>`).join('')}</div></section>
    <section class="panel"><div class="menu-row"><span>外观</span><div class="seg inline">${[['system','跟随系统'],['light','浅色'],['dark','深色']].map(([k,v])=>`<button data-theme-set="${k}" aria-pressed="${theme===k}">${v}</button>`).join('')}</div></div>
@@ -1044,20 +1059,21 @@ function viewMe(){
         <div class="note" style="padding-top:0">在 Claude 里打开本页不需要填。Key 只保存在这台设备的浏览器里，不会上传到别处；不要在公用设备上填写。</div>`):''}
      <div class="menu-row"><span>球员中文译名</span><small>译名库 ${Object.keys(NAMES).length} 人 · 自定义 ${Object.keys(customNames).length} 人</small></div>
      <div class="menu-row"><span>数据来源</span><small>${Live.state==='ok'?'MLB 官方 statsapi · 实时':'未连接 · 显示示例数据'}</small></div>
-     <div class="menu-row"><span>关于本垒</span><small>v0.3 演示版</small></div></section></div>`;
+     <div class="menu-row"><span>关于本垒</span><small>v0.4</small></div></section></div>`;
   return {mast,main};
 }
 
 /* ---------- sheets ---------- */
 const backBtn=`<button class="back" data-act="close" aria-label="返回">${I.back}</button>`;
+const shareBtn=`<button class="side share" data-act="share" aria-label="分享">${I.share}</button>`;
 function sheetArticle(n){
   if(!n)return `<div class="sheet-h">${backBtn}<b>资讯</b><span class="side"></span></div><div class="empty">这篇内容已经不在了</div>`;
   if(n.game)return sheetGame(G(n.game));
   const body=(n.body||[]).map(b=>typeof b==='string'?`<p>${esc(b)}</p>`:`<p class="formula">${esc(b.f)}</p>`).join('');
-  const cm=[...(myComments[n.id]||[]),...(COMMENTS[n.id]||[])];
-  return `<div class="sheet-h">${backBtn}<b>${esc(n.src)}</b><span class="side"></span></div>
-   <article class="article"><h2>${esc(n.title)}</h2>${newsMeta(n)}${(()=>{const c=n.pk&&recapClip(n.pk,n.heroId);return c?`<button style="display:block;width:100%" data-clip="${n.pk}:${Live.content[n.pk].indexOf(c)}">${art(n)}</button>`:art(n);})()}${body}${n.pk&&Live.content[n.pk]&&Live.content[n.pk].length?`<div style="margin:0 -14px 14px">${clipsHTML(G(n.gref)||{real:1,pk:n.pk},'strip').replace('<section class="panel">','<section>').replace(/<button class="ai-btn" data-gtab="hl">[^<]*<\/button>/,'')}</div>`:''}${n.gref?`<button class="ai-btn" data-game="${n.gref}">查看比赛详情 ›</button><p class="note" style="padding:12px 0 0">本文根据 MLB 官方比分和得分记录自动生成。</p>`:''}</article>${n.auto?'':`
-   <section class="cmts"><div class="sec-h">评论<small>${cm.length?cm.length+'条':''}</small></div>${cm.length?cm.map(([u,t,time,lk])=>`<div class="cmt"><span class="avatar" style="--tc:var(--brand)">${esc(u[0])}</span><div><b>${esc(u)}</b><p>${esc(t)}</p><small>${esc(time)}${lk?` · ${lk}赞`:''}</small></div></div>`).join(''):'<div class="empty">还没有评论，来说第一句</div>'}</section>
+  const cm=myComments[n.id]||[];
+  return `<div class="sheet-h">${backBtn}<b>${esc(n.src)}</b>${shareBtn}</div>
+   <article class="article"><h2>${esc(n.title)}</h2>${newsMeta(n)}${(()=>{const c=n.pk&&recapClip(n.pk,n.heroId);return c?`<button style="display:block;width:100%" data-clip="${n.pk}:${Live.content[n.pk].indexOf(c)}">${art(n)}</button>`:art(n);})()}${body}<div class="art-acts"><button class="ai-btn" data-fav="${n.id}">${isFav(n.id)?'★ 已收藏':'☆ 收藏'}</button><button class="ai-btn" data-act="share">分享</button></div>${n.pk&&Live.content[n.pk]&&Live.content[n.pk].length?`<div style="margin:0 -14px 14px">${clipsHTML(G(n.gref)||{real:1,pk:n.pk},'strip').replace('<section class="panel">','<section>').replace(/<button class="ai-btn" data-gtab="hl">[^<]*<\/button>/,'')}</div>`:''}${n.gref?`<button class="ai-btn" data-game="${n.gref}">查看比赛详情 ›</button><p class="note" style="padding:12px 0 0">本文根据 MLB 官方比分和得分记录自动生成。</p>`:''}</article>${n.auto?'':`
+   <section class="cmts"><div class="sec-h">评论<small>只保存在这台设备上</small></div>${cm.length?cm.map(([u,t,time,lk])=>`<div class="cmt"><span class="avatar" style="--tc:var(--brand)">${esc(u[0])}</span><div><b>${esc(u)}</b><p>${esc(t)}</p><small>${esc(time)}${lk?` · ${lk}赞`:''}</small></div></div>`).join(''):'<div class="empty">写下你的看法。评论区暂时只是个人笔记：只有你自己看得到，等接入服务器后才会公开。</div>'}</section>
    <form class="composer" data-comment="${n.id}"><input id="cmt-in" maxlength="200" placeholder="说点什么…" autocomplete="off"><button type="submit">发送</button></form>`}`;
 }
 function diamond(b){
@@ -1073,7 +1089,7 @@ const CMP_ROWS=[['安打','bs','hits'],['全垒打','bs','homeRuns'],['二垒安
 function cmpHTML(g,B){
   return `<section class="panel"><div class="cmp-h"><span>${logo(g.a.t)}${esc(team(g.a.t).n)}</span><span>${esc(team(g.h.t).n)}${logo(g.h.t)}</span></div>${CMP_ROWS.map(([label,grp,k])=>{
     const a=+B.a[grp][k]||0,h=+B.h[grp][k]||0,tot=a+h||1,ca=a>=h?'var(--brand)':'var(--faint)',ch=h>=a?'var(--brand)':'var(--faint)';
-    return `<div class="cmp"><b>${a}</b><div class="bar l"><i style="--w:${a/tot*100}%;--c:${ca}"></i></div><span>${label}</span><div class="bar"><i style="--w:${h/tot*100}%;--c:${ch}"></i></div><b>${h}</b></div>`;}).join('')}
+    return `<div class="cmp"><b>${a}</b><div class="bar l"><i style="--w:${a/tot*100}%;--c:${ca}"></i></div><span>${term(label)}</span><div class="bar"><i style="--w:${h/tot*100}%;--c:${ch}"></i></div><b>${h}</b></div>`;}).join('')}
     <div class="note">数据来源：MLB 官方 boxscore</div></section>`;
 }
 const pname=(x,ab)=>{hint(x.id,x.n,ab);return `<button data-player="${x.id}"><span>${esc(dispName(x.n))}</span>${x.pos?`<small>${esc(x.pos)}</small>`:''}</button>`;};
@@ -1093,7 +1109,7 @@ function sheetGame(g,tab,side){
   if(!g)return `<div class="sheet-h">${backBtn}<b>比赛</b><span class="side"></span></div><div class="empty">这场比赛已不在当前数据范围内</div>`;
   const ra=runs(g.a),rh=runs(g.h),pre=g.status==='pre';
   const tm=s=>`<${MLB[s.t]?`button data-teamp="${s.t}"`:'div'} class="board-team">${logo(s.t,'lg')}<span>${esc(team(s.t).n)}</span><small>${s===g.h?'主队':'客队'}${s.rec?` · ${s.rec.wins}-${s.rec.losses}`:''}</small></${MLB[s.t]?'button':'div'}>`;
-  let h=`<div class="sheet-h dark">${backBtn}<b>${esc(LG_NAME[g.lg])} · ${esc(g.stage)}</b><span class="side"></span></div>
+  let h=`<div class="sheet-h dark">${backBtn}<b>${esc(LG_NAME[g.lg])} · ${esc(g.stage)}</b>${g.real?shareBtn:'<span class="side"></span>'}</div>
    <div class="board"><div class="board-main">${tm(g.a)}<div class="board-score">${pre?`<b style="font-size:32px">${esc(g.time)}</b>`:`<b>${ra} - ${rh}</b>`}<span class="st ${g.status}">${pre?(g.detail==='Postponed'?'延期':'未开始'):statusText(g)}</span></div>${tm(g.h)}</div>
    <div class="board-stage">${esc(g.venue||'')} · ${g.real?'MLB 官方数据':'示例数据'}</div></div>`;
   if(pre)return h+`<div class="wrap"><section class="panel"><div class="sec-h">比赛信息</div><dl class="kv"><dt>开赛时间</dt><dd>${dayLabel(g.day).num} ${esc(g.time)}（本地时间）</dd><dt>球场</dt><dd>${esc(g.venue||'待定')}</dd>${g.a.sp||g.h.sp?`<dt>预计先发</dt><dd>${esc(g.a.sp||'待定')} vs ${esc(g.h.sp||'待定')}</dd>`:''}</dl></section></div>`;
@@ -1143,7 +1159,7 @@ function sheetTeam(ab,tab){
   const t=MLB[ab],on=follows.includes(ab),rec=Live.records[ab];
   const ws=t.ws.length,form=teamForm(ab);
   const tc=`style="--tc:${t.c}"`;
-  let h=`<div class="sheet-h team" ${tc}>${backBtn}<b>${esc(t.n)}</b><span class="side"></span></div>
+  let h=`<div class="sheet-h team" ${tc}>${backBtn}<b>${esc(t.n)}</b>${shareBtn}</div>
    <div class="thero" ${tc}>${I.seam}<div class="thero-main">${logo(ab,'xl')}<div><h2>${esc(t.city)}${esc(t.n)}</h2><small>${esc(t.en.toUpperCase())}</small><small>${esc(t.lg)}${esc(t.div)}</small></div></div>
    <div class="thero-stats"><div><b>${rec&&rec.rank?'第'+rec.rank:'—'}</b>${esc(t.lg+t.div)}排名</div><div><b>${rec?`${rec.w}-${rec.l}`:'—'}</b>${rec?`${SEASON} 战绩`:'本季战绩'}</div>
      <div><b class="form" style="font-size:13px;line-height:23px">${form.length?form.map(r=>`<i class="${r}">${r==='w'?'胜':'负'}</i>`).join(''):'—'}</b>最近 ${form.length||5} 场</div><div><b>${ws}</b>世界大赛冠军</div></div>
@@ -1184,9 +1200,11 @@ function sheetSearch(q){
   if(!kw)return `<section class="panel"><div class="sec-h">美职棒球队</div>${teamGrid()}</section>`;
   const ns=allNews().filter(n=>n.title.includes(kw));
   const ts=Object.values(MLB).filter(t=>t.n.includes(kw)||t.city.includes(kw)||t.ab.toLowerCase()===lo||t.en.toLowerCase().includes(lo));
-  if(!ns.length&&!ts.length)return `<div class="empty">没有找到和“${esc(kw)}”相关的内容</div>`;
+  const ps=findPlayers(kw,20);
+  if(!ns.length&&!ts.length&&!ps.length)return `<div class="empty">${PK.state==='loading'?'正在读取球员名单…':`没有找到和“${esc(kw)}”相关的内容`}</div>`;
   let r='';
   if(ts.length)r+=`<section class="panel"><div class="sec-h">球队</div><div class="teamlist">${ts.map(t=>`<button class="tcell" data-teamp="${t.ab}">${logo(t.ab,'md')}<span><b style="font-weight:500">${esc(t.n)}</b><small>${esc(t.city)}</small></span></button>`).join('')}</div></section>`;
+  if(ps.length)r+=`<section class="panel"><div class="sec-h">球员</div>${ps.map(x=>{const zh=zhName(x.n);return `<button class="lrow" data-player="${x.id}">${x.t?logo(x.t):'<span class="logo" style="--tc:var(--faint)">—</span>'}<span>${esc(zh||x.n)}${zh?` <small style="color:var(--faint)">${esc(x.n)}</small>`:''}</span><small style="color:var(--muted)">${esc(x.pos?POS_CN[x.pos]||x.pos:'')}</small></button>`;}).join('')}</section>`;
   if(ns.length)r+=`<section class="panel">${ns.map(newsRow).join('')}</section>`;
   return r;
 }
@@ -1716,7 +1734,7 @@ async function loadPlayer(id){
 function heightCm(h){const m=String(h||'').match(/(\d+)'\s*(\d+)/);return m?Math.round((+m[1]*12+ +m[2])*2.54)+' 厘米':'';}
 const HIT=[['avg','打击率'],['homeRuns','全垒打'],['rbi','打点'],['ops','OPS'],['hits','安打'],['obp','上垒率'],['stolenBases','盗垒'],['gamesPlayed','出赛']];
 const PIT=[['era','防御率'],['wins','胜'],['losses','负'],['strikeOuts','三振'],['inningsPitched','局数'],['whip','WHIP'],['saves','救援'],['gamesPlayed','出赛']];
-function tiles(stat,defs){return `<div class="tiles">${defs.map(([k,v])=>`<div><b>${esc(stat[k]!=null?stat[k]:'—')}</b>${v}</div>`).join('')}</div>`;}
+function tiles(stat,defs){return `<div class="tiles">${defs.map(([k,v])=>`<div><b>${esc(stat[k]!=null?stat[k]:'—')}</b>${term(v)}</div>`).join('')}</div>`;}
 /* ---------- 能力值：Baseball Savant 百分位排名（GitHub Actions 每天抓取成 ratings.json） ---------- */
 const RT={state:'loading',data:null};
 fetch('ratings.json',{cache:'no-cache'}).then(r=>r.ok?r.json():Promise.reject(r.status)).then(d=>{RT.data=d;RT.state='ok';})
@@ -1748,10 +1766,10 @@ function ratingHTML(a,pitcher){
   if(keys.length<3)return `<section class="panel"><div class="empty">${pitcher?'投球':'打击'}样本不足，Statcast 没有给出排名</div></section>`;
   const core=coreOf(a,pitcher),overall=overallOf(a,pitcher);
   const sorted=keys.slice().sort((x,y)=>a[y]-a[x]),strong=sorted.filter(k=>a[k]>=90).slice(0,4),weak=sorted.filter(k=>a[k]<=15).slice(-3);
-  return `<section class="panel"><div class="overall">${pitcher?'投球':'打击'}综合<b>${overall}</b></div>${axes.length>=3?radarSVG(axes):''}
+  return `<section class="panel"><div class="overall">${pitcher?'投球':'打击'}${term('综合')}<b>${overall}</b></div>${axes.length>=3?radarSVG(axes):''}
     ${strong.length||weak.length?`<div class="traits">${strong.map(k=>`<span><em>强项</em>${PCT_SHORT[k]}</span>`).join('')}${weak.map(k=>`<span><em class="weak">弱项</em>${PCT_SHORT[k]}</span>`).join('')}</div>`:''}</section>
     <section class="panel"><div class="sec-h">Statcast 百分位<small>${RT.data.year} 赛季</small></div><div class="abars" style="grid-template-columns:1fr">${keys.map(k=>
-      `<div class="abar"><span>${PCT_CN[k]}</span><b style="color:${pctColor(a[k])}">${a[k]}</b><i style="--w:${a[k]}%;--c:${pctColor(a[k])}"></i></div>`).join('')}</div>
+      `<div class="abar"><span>${term(PCT_CN[k],k)}</span><b style="color:${pctColor(a[k])}">${a[k]}</b><i style="--w:${a[k]}%;--c:${pctColor(a[k])}"></i></div>`).join('')}</div>
     <div class="note">数据来源：Baseball Savant（MLB 官方 Statcast）· 更新于 ${esc(RT.data.updated)}。数字是联盟百分位：90 表示比 90% 的${pitcher?'投手':'打者'}好，越红越好、越蓝越差。综合能力取 ${core[1]}（Statcast 衡量${pitcher?'投手压制力':'打者整体进攻'}的核心指标）的联盟百分位，换算到 40–99 分：联盟中游约 70，顶尖 95 以上。</div></section>`;
 }
 // vs: optional second player's values, same order as axes (球员 PK)
@@ -1811,7 +1829,7 @@ function sheetPlayer(id,tab){
   const sub=p?[COUNTRY[p.birthCountry]||p.birthCountry,heightCm(p.height)?'身高 '+heightCm(p.height).replace(' 厘米','cm'):'',p.weight?'体重 '+Math.round(p.weight*0.4536)+'kg':''].filter(Boolean).join(' / '):'';
   const tabs=job?[['info','资料'],['career','球员经历']]:[['data','数据'],['rating','能力值'],['info','资料']];
   if(!tabs.some(x=>x[0]===tab))tab=tabs[0][0];
-  let h=`<div class="sheet-h team" ${tc}>${backBtn}<b>${esc(zh||en||'球员')}</b>${job?'<span class="side"></span>':`<button class="side pk-btn" data-pk="${id}" aria-label="球员 PK">PK</button>`}</div>
+  let h=`<div class="sheet-h team" ${tc}>${backBtn}<b>${esc(zh||en||'球员')}</b>${job?'':`<button class="side pk-btn" data-pk="${id}" aria-label="球员 PK">PK</button>`}${shareBtn}</div>
    <div class="phero" ${tc}>${I.seam}<div class="phero-top">${headshot(id,(zh||en||'?').slice(0,1))}
    <div class="pinfo"><h2>${esc(zh||en)}</h2>${zh?`<small>${esc(en)}</small>`:''}${sub?`<small>${esc(sub)}</small>`:''}</div></div>
    <div class="pbar">${bar.map(([v,k,tb])=>`<div ${tb&&MLB[tb]?`class="tl" data-teamp="${tb}" role="link" tabindex="0"`:''}><b>${esc(v)}</b>${k}${tb&&MLB[tb]?' ›':''}</div>`).join('')}</div></div>
@@ -1858,6 +1876,60 @@ function sheetPlayer(id,tab){
   }
   return h+(tab==='info'?nameForm(en):'')+'</div>';
 }
+/* ---------- 术语解释：点数据名称弹出中文说明 ---------- */
+const GLOSS={
+  打击率:['打击率 AVG','安打数 ÷ 打数。最传统的打击指标，.300 以上算优秀，联盟平均约 .245。'],
+  上垒率:['上垒率 OBP','打者安全上垒（安打、保送、触身球）的比例。.350 以上算优秀，平均约 .315。'],
+  长打率:['长打率 SLG','平均每个打数打出几个垒包（一垒安打算 1，全垒打算 4），衡量打者的力量。.500 以上很强。'],
+  OPS:['OPS（上垒率 + 长打率）','把上垒能力和长打能力加在一起的综合打击指标。.800 以上算好打者，.900 以上是明星级，1.000 以上是顶级。'],
+  全垒打:['全垒打 HR','把球打出外野墙（或场内跑完四个垒），打者和垒上所有跑者都得分。一季 30 支以上就是强力打者，40 支以上是全联盟顶尖。'],
+  打点:['打点 RBI','因为这名打者的打击而回本垒得分的人数（包括他自己的全垒打）。一季 100 打点以上很出色。'],
+  安打:['安打 H','打者把球打进场内并安全上垒，且不是因为守备失误。'],
+  盗垒:['盗垒 SB','投手投球时，跑者趁机跑向下一个垒并成功。'],
+  出赛:['出赛 G','本季上场比赛的场数。常规赛每队 162 场。'],
+  防御率:['防御率 ERA','投手平均每投 9 局被打回几个自责分（不算守备失误造成的失分）。越低越好：3.00 以下优秀，联盟平均约 4.00。'],
+  WHIP:['WHIP','投手平均每局放上垒的人数（被安打 + 保送）。越低越好：1.10 以下很强，平均约 1.30。'],
+  胜:['胜投 W','球队赢球时，被记为对胜利贡献最大的那位投手。先发投手至少要投满 5 局才能拿胜投。'],
+  负:['败投 L','让对手取得最终领先、且球队没能追回的那位投手。'],
+  三振:['三振 K / SO','打者累积 3 个好球出局。对投手来说越多越好，对打者来说越少越好。'],
+  局数:['投球局数 IP','投手投了几局。每局 3 个出局，“.1”表示多投了 1 个出局，“.2”表示 2 个出局。'],
+  救援:['救援成功 SV','终结者在球队领先不多（通常 3 分以内）时上场，守住胜利到比赛结束。'],
+  保送:['保送 BB','投手投出 4 个坏球，打者直接上一垒。'],
+  残垒:['残垒 LOB','一局结束时还留在垒上、没能回来得分的跑者数，越多说明浪费的机会越多。'],
+  失误:['失误 E','守备球员本该处理好的球没处理好，让打者或跑者多推进。'],
+  胜差:['胜差 GB','和分区第一名相差几场。比如胜差 3.0，表示要多赢 3 场、对方多输 3 场才能追平。'],
+  胜率:['胜率','胜场 ÷（胜场 + 负场）。'],
+  综合:['综合能力','本垒根据 Baseball Savant（MLB 官方 Statcast）的联盟百分位换算的分数，40–99 分：打者看 xwOBA，投手看 xERA。联盟中游约 70，顶尖 95 以上。'],
+  xwoba:['预期加权上垒率 xwOBA','根据每一次击球的初速和仰角，估算打者“应该”有多好的进攻结果，排除了运气和对方守备的影响。是 Statcast 衡量打者最核心的指标。'],
+  xba:['预期打击率 xBA','根据击球质量估算的打击率，比实际打击率更能反映真实能力。'],
+  xslg:['预期长打率 xSLG','根据击球质量估算的长打率。'],
+  xiso:['预期纯长打率 xISO','预期长打率减去预期打击率，只看力量。'],
+  xobp:['预期上垒率 xOBP','根据击球质量和保送估算的上垒率。'],
+  xera:['预期防御率 xERA','根据投手被打出的击球质量、三振和保送，估算他“应该”有多少防御率，排除了守备和运气。'],
+  brl_percent:['强击率 Barrel%','击球初速和仰角都落在“最理想区间”的比例。这类球大多成为长打或全垒打。'],
+  exit_velocity:['平均击球初速','球离开球棒时的平均速度。越快越难守，95 英里/小时以上就是强击球。'],
+  max_ev:['最快击球初速','本季最快的一次击球初速，体现打者力量的上限。'],
+  hard_hit_percent:['强击球率 Hard-Hit%','击球初速达到 95 英里/小时以上的比例。'],
+  k_percent:['三振率','打者被三振（或投手三振对手）占打席的比例。在百分位里已经换算成“越高越好”。'],
+  bb_percent:['保送率','保送占打席的比例。在百分位里已经换算成“越高越好”。'],
+  whiff_percent:['挥空率','打者挥棒却没碰到球的比例。'],
+  chase_percent:['追打坏球率','打者对好球带外的球出棒的比例。打者越少追越好，投手越能诱使对手追打越好。'],
+  sprint_speed:['冲刺速度','跑垒时最快一秒的平均速度（英尺/秒），联盟平均约 27，30 以上是飞毛腿。'],
+  oaa:['守备价值 OAA','和同位置的平均守备员相比，多守下（或少守下）多少个出局。'],
+  arm_strength:['传球臂力','守备传球的最快速度。'],
+  bat_speed:['挥棒速度','球棒击中球那一刻的速度，越快越容易打出强击球。'],
+  squared_up_rate:['扎实击球率','击球时把球棒速度最大程度转化为击球初速的比例。'],
+  fb_velocity:['直球球速','投手四缝线直球的平均球速。'],
+  fb_spin:['直球转速','直球每分钟的旋转圈数，转速越高，球看起来越会“上飘”。'],
+  curve_spin:['曲球转速','曲球每分钟的旋转圈数，越高通常下坠越明显。'],
+};
+['xwOBA','预期加权上垒率 xwOBA'].forEach(k=>GLOSS[k]=GLOSS.xwoba);
+const term=(label,key)=>{key=key||label;return GLOSS[key]?`<span class="term" data-term="${esc(key)}">${label}</span>`:label;};
+NEWS.unshift({id:'gl',ch:['科普'],tag:'词典',art:['术语'],title:'棒球术语词典：数据页上的缩写都是什么意思',src:'本垒学院',
+  body:['在本垒的任何页面，点一下带虚线的数据名称，都会弹出解释。下面是全部术语，可以收藏起来慢慢看。',
+    ...[...new Set(Object.values(GLOSS))].map(([t,x])=>`${t}：${x}`)]});
+function showTerm(k){const g=GLOSS[k];if(g)showInfo(g[0],g[1]);}
+
 /* ---------- 球员 PK ---------- */
 const PK={state:'idle',byId:{}}; // 本赛季全部大联盟球员，用于挑选对比对象
 async function loadPool(){
@@ -1908,7 +1980,7 @@ function pkStatRows(sa,sb,defs){
     const va=sa&&sa[k],vb=sb&&sb[k];if(va==null&&vb==null)return '';
     const a=parseFloat(va)||0,b=parseFloat(vb)||0,tot=a+b||1,low=LOWER_BETTER.has(k);
     const wa=va!=null&&(vb==null||(low?a<=b:a>=b)),wb=vb!=null&&(va==null||(low?b<=a:b>=a));
-    return `<div class="cmp pk"><b class="${wa?'wa':''}">${esc(va!=null?va:'—')}</b><div class="bar l"><i style="--w:${a/tot*100}%;--c:${wa?'var(--brand)':'var(--faint)'}"></i></div><span>${label}${low?'<small>越低越好</small>':''}</span><div class="bar"><i style="--w:${b/tot*100}%;--c:${wb?'var(--red)':'var(--faint)'}"></i></div><b class="${wb?'wb':''}">${esc(vb!=null?vb:'—')}</b></div>`;}).join('');
+    return `<div class="cmp pk"><b class="${wa?'wa':''}">${esc(va!=null?va:'—')}</b><div class="bar l"><i style="--w:${a/tot*100}%;--c:${wa?'var(--brand)':'var(--faint)'}"></i></div><span>${term(label)}${low?'<small>越低越好</small>':''}</span><div class="bar"><i style="--w:${b/tot*100}%;--c:${wb?'var(--red)':'var(--faint)'}"></i></div><b class="${wb?'wb':''}">${esc(vb!=null?vb:'—')}</b></div>`;}).join('');
 }
 function sheetPK(key,gp){
   const [a,b]=String(key).split('-').map(Number),A=Live.player[a],B=Live.player[b];
@@ -1918,7 +1990,7 @@ function sheetPK(key,gp){
   let common=A&&B?pkGroups(A).filter(g=>pkGroups(B).includes(g)):[];
   if(!common.includes(gp))gp=common[0]||(A&&A.grp)||'hitting';
   const pit=gp==='pitching';
-  let h=`<div class="sheet-h dark">${backBtn}<b>球员 PK</b><button class="side pk-btn" data-pk="${a}">换人</button></div>
+  let h=`<div class="sheet-h dark">${backBtn}<b>球员 PK</b><button class="side pk-btn" data-pk="${a}">换人</button>${shareBtn}</div>
     <div class="pkhero">${side(a,A,'var(--brand)')}<span class="vs">VS</span>${side(b,B,'var(--red)')}</div><div class="wrap">`;
   if(!A||!B){
     const failed=A===null||B===null;
@@ -1935,7 +2007,7 @@ function sheetPK(key,gp){
       h+=`<section class="panel"><div class="sec-h">能力雷达<small>Statcast 百分位</small></div>${axes.length>=3?radarSVG(axes,axes.map(([k])=>xb[k])):''}
         <div class="pk-legend"><span><i style="background:var(--brand)"></i>${esc(dispName(pkInfo(a).n))}</span><span><i style="background:var(--red)"></i>${esc(dispName(pkInfo(b).n))}</span></div></section>
         <section class="panel"><div class="sec-h">Statcast 百分位<small>${RT.data.year} 赛季</small></div>${keys.map(k=>
-          `<div class="cmp pk"><b class="${ra[k]>=rb[k]?'wa':''}">${ra[k]}</b><div class="bar l"><i style="--w:${ra[k]}%;--c:${ra[k]>=rb[k]?'var(--brand)':'var(--faint)'}"></i></div><span>${PCT_SHORT[k]}</span><div class="bar"><i style="--w:${rb[k]}%;--c:${rb[k]>=ra[k]?'var(--red)':'var(--faint)'}"></i></div><b class="${rb[k]>=ra[k]?'wb':''}">${rb[k]}</b></div>`).join('')}
+          `<div class="cmp pk"><b class="${ra[k]>=rb[k]?'wa':''}">${ra[k]}</b><div class="bar l"><i style="--w:${ra[k]}%;--c:${ra[k]>=rb[k]?'var(--brand)':'var(--faint)'}"></i></div><span>${term(PCT_SHORT[k],k)}</span><div class="bar"><i style="--w:${rb[k]}%;--c:${rb[k]>=ra[k]?'var(--red)':'var(--faint)'}"></i></div><b class="${rb[k]>=ra[k]?'wb':''}">${rb[k]}</b></div>`).join('')}
           <div class="note">数字是联盟百分位，90 表示比 90% 的${pit?'投手':'打者'}好。数据来源：Baseball Savant · 更新于 ${esc(RT.data.updated)}</div></section>`;
     }else if(RT.state==='ok')h+=`<section class="panel"><div class="empty">${!ra&&!rb?'两位球员':esc(dispName(pkInfo(ra?b:a).n))}在 ${RT.data.year} 赛季 Statcast 没有排名，只对比比赛数据</div></section>`;
     const defs=pit?PIT:HIT,kind=pit?'投球':'打击';
@@ -1975,12 +2047,13 @@ function sheetHTML(){
   if(s.kind==='pk')return sheetPK(s.id,s.tab);
 }
 function openSheet(kind,id){
-  if(S.sheet&&kind!=='search')SHEET_STACK.push(S.sheet);
+  if(S.sheet&&kind!=='search'&&S.sheet.kind!=='search')SHEET_STACK.push(S.sheet); // 从搜索结果打开时替换搜索页
   S.sheet={kind,id,tab:kind==='player'?(PH[id]&&PH[id].job?'info':'data'):'info'};
   const root=$('#sheet-root');
   if(kind==='search'){
-    root.innerHTML=`<div class="sheet"><div class="sheet-h">${backBtn}<input class="search-in" id="search-in" placeholder="搜索球队（中文、英文或缩写）、新闻" autocomplete="off"></div><div class="wrap" id="search-res">${sheetSearch('')}</div></div>`;
+    root.innerHTML=`<div class="sheet"><div class="sheet-h">${backBtn}<input class="search-in" id="search-in" placeholder="搜索球队、球员（中文或英文）、新闻" autocomplete="off"></div><div class="wrap" id="search-res">${sheetSearch('')}</div></div>`;
     $('#search-in').focus();
+    if(Live.state==='ok')loadPool().then(()=>{if(S.sheet&&S.sheet.kind==='search')refreshSheet();});
   }else if(kind==='pkpick'){
     root.innerHTML=`<div class="sheet">${pickerHTML(id)}</div>`;
     if(Live.state==='ok')loadPool().then(()=>{if(S.sheet&&S.sheet.kind==='pkpick')refreshSheet();});
@@ -2014,13 +2087,117 @@ function setTeamTab(tab){
   if((tab==='roster'||tab==='coaches')&&Live.state==='ok'&&!Live.roster[ab]&&!Live.coaches[ab])
     loadTeamExtra(ab).catch(()=>{Live.roster[ab]=Live.roster[ab]||[];Live.coaches[ab]=Live.coaches[ab]||[];}).then(()=>{if(S.sheet&&S.sheet.id===ab)refreshSheet();});
 }
+/* ---------- 弹出说明（术语、添加到桌面） ---------- */
+function showInfo(title,text){
+  let el=$('#gloss');
+  if(!el){el=document.createElement('div');el.id='gloss';el.className='gloss';document.body.appendChild(el);}
+  el.innerHTML=`<div class="gloss-c" role="dialog" aria-label="${esc(title)}"><b>${esc(title)}</b><p>${esc(text)}</p><button data-act="gclose">知道了</button></div>`;el.hidden=false;
+}
+
+/* ---------- 收藏（只保存在本机） ---------- */
+let favs=store.get('favs',[]);
+const isFav=id=>favs.some(f=>f.id===id);
+function toggleFav(id){
+  if(isFav(id)){favs=favs.filter(f=>f.id!==id);toast('已取消收藏');}
+  else{const n=allNews().find(x=>x.id===id);if(!n)return;favs.unshift({id,title:n.title,src:n.src,date:ymd(new Date())});toast('已收藏，在「我的」里可以找到');}
+  store.set('favs',favs);refreshSheet();if(S.tab==='me')render();
+}
+
+/* ---------- 添加到手机桌面 ---------- */
+let installEvt=null;
+addEventListener('beforeinstallprompt',e=>{e.preventDefault();installEvt=e;});
+const standalone=()=>{try{return matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;}catch(e){return false;}};
+function installGuide(){
+  if(installEvt){installEvt.prompt();installEvt=null;return;}
+  const ua=navigator.userAgent;
+  showInfo('添加到手机桌面',/MicroMessenger/i.test(ua)?'微信里不能直接添加。先点右上角「…」，选「在浏览器打开」，然后在浏览器里添加到主屏幕。添加后点桌面图标打开，就像一个独立的 App，没有地址栏。'
+    :/iPhone|iPad|iPod/i.test(ua)?'用 Safari 打开本页，点屏幕底部中间的「分享」按钮（方框加向上箭头），向下滑，选「添加到主屏幕」，再点「添加」。之后从桌面图标打开，就像一个独立的 App。'
+    :'点浏览器右上角「⋮」或底部菜单，选「添加到主屏幕」或「安装应用」。之后从桌面图标打开，就像一个独立的 App。');
+}
+
+/* ---------- 搜索球员 ---------- */
+function findPlayers(kw,limit){
+  const lo=normName(kw),pool={};
+  Object.entries(PH).forEach(([id,h])=>{if(h.n)pool[id]=pkInfo(+id);});Object.keys(PK.byId).forEach(id=>pool[id]=pkInfo(+id));
+  return Object.values(pool).filter(x=>x.n&&(normName(x.n).includes(lo)||zhName(x.n).includes(kw))).slice(0,limit);
+}
+
+/* ---------- 下拉刷新；离开一段时间后回来自动更新 ---------- */
+let refreshing=false,lastRefresh=Date.now();
+async function refreshAll(quiet){
+  if(refreshing)return;
+  if(ymd(new Date())!==ymd(TODAY)){location.reload();return;} // 跨天了，日期全部要重算
+  if(Live.state!=='ok'){if(!quiet)toast('当前无法连接 MLB 官方数据');return;}
+  refreshing=true;
+  try{await loadSchedule();}catch(e){refreshing=false;if(!quiet)toast('刷新失败，请检查网络');return;}
+  await Promise.all([loadTx().catch(()=>{}),loadScoring().catch(()=>{}),loadStandings().catch(()=>{}),loadLeaders().catch(()=>{}),loadPost().catch(()=>{})]);
+  if(myTeam)delete Live.teamSched[myTeam];
+  Live.fa=undefined;
+  refreshing=false;lastRefresh=Date.now();render();refreshSheet();if(!quiet)toast('已更新到最新');
+}
+document.addEventListener('visibilitychange',()=>{if(!document.hidden&&Date.now()-lastRefresh>3*60e3)refreshAll(true);});
+(()=>{
+  let y0=null,dy=0;const ind=document.createElement('div');ind.className='ptr';document.body.appendChild(ind);
+  const show=t=>{ind.textContent=t;ind.style.opacity=t?1:0;ind.style.transform=`translate(-50%,${Math.min(dy,90)/2}px)`;};
+  addEventListener('touchstart',e=>{y0=!S.sheet&&scrollY<=0&&e.touches.length===1?e.touches[0].clientY:null;dy=0;},{passive:true});
+  addEventListener('touchmove',e=>{if(y0==null)return;dy=e.touches[0].clientY-y0;if(dy>10&&scrollY<=0)show(dy>70?'松开刷新':'下拉刷新');else show('');},{passive:true});
+  addEventListener('touchend',async()=>{if(y0==null)return;y0=null;if(dy>70){show('正在刷新…');await refreshAll();}dy=0;show('');});
+})();
+
+/* ---------- 返回键与分享链接：每打开一层页面就记一条浏览记录 ---------- */
+// 手机侧滑 / 返回键会先关掉当前页面，而不是离开网站；地址栏里的 #p/660271 这类链接可以直接分享
+let hDepth=0,skipPop=false;
+const vOpen=()=>!!document.getElementById('vbox');
+const navDepth=()=>(S.sheet?SHEET_STACK.length+1:0)+(vOpen()?1:0);
+const ROUTE={player:'p',team:'t',game:'g',news:'n',pk:'pk',series:'s'},ROUTE_KIND={p:'player',t:'team',g:'game',n:'news',pk:'pk',s:'series'};
+const navHash=()=>S.sheet&&ROUTE[S.sheet.kind]?`#${ROUTE[S.sheet.kind]}/${encodeURIComponent(S.sheet.id)}`:'#'+S.tab;
+function syncHist(){
+  const d=navDepth();
+  try{
+    if(d>hDepth){for(;hDepth<d;hDepth++)history.pushState({d:hDepth+1},'',navHash());}
+    else if(d<hDepth){skipPop=true;history.go(d-hDepth);hDepth=d;}
+    else history.replaceState(d?{d}:null,'',navHash());
+  }catch(e){}
+}
+addEventListener('popstate',e=>{
+  if(skipPop){skipPop=false;try{history.replaceState(hDepth?{d:hDepth}:null,'',navHash());}catch(_){}return;}
+  const want=(e.state&&e.state.d)||0;
+  while(navDepth()>want){if(vOpen())closeVideo();else closeSheet();}
+  hDepth=navDepth();
+  if(hDepth<want){skipPop=true;history.go(hDepth-want);} // “前进”无法重开已关的页面
+  else try{history.replaceState(hDepth?{d:hDepth}:null,'',navHash());}catch(_){}
+});
+let deepLink=(location.hash.match(/^#(p|t|g|n|pk|s)\/(.+)$/)||[]).slice(1);
+// 1：连上数据后打开球员、球队、PK、比赛；2：战报、系列赛要等全部数据读完
+function openDeep(stage){
+  if(!deepLink.length)return;
+  const [k,raw]=deepLink,need={p:1,t:1,pk:1,g:1,n:2,s:2}[k];if(need!==stage)return;
+  deepLink=[];const kind=ROUTE_KIND[k];let id=decodeURIComponent(raw);
+  if(kind==='player')id=+id;if(kind==='team'&&!MLB[id])return;
+  openSheet(kind,id);syncHist();
+}
+async function shareCurrent(){
+  const url=location.href.split('#')[0]+navHash(),h=document.querySelector('#sheet-root .sheet-h b'),title=(h?h.textContent+' · ':'')+'本垒棒球';
+  if(navigator.share){try{await navigator.share({title,url});}catch(e){}return;}
+  try{await navigator.clipboard.writeText(url);toast('链接已复制，粘贴给朋友就能直接打开这一页');}
+  catch(e){window.prompt('复制这个链接分享给朋友：',url);}
+}
 let toastT;
 function toast(m){const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,2400);}
 
 document.addEventListener('click',e=>{
-  const b=e.target.closest('[data-teamp],[data-player],button');if(!b)return;
+  const gl=$('#gloss');if(gl&&!gl.hidden&&!e.target.closest('.gloss-c')){gl.hidden=true;if(!e.target.closest('[data-term]'))return;}
+  const b=e.target.closest('[data-term],[data-teamp],[data-player],button');if(!b)return;
+  onClick(b);syncHist();
+});
+function onClick(b){
   const d=b.dataset;
-  if(d.tab){S.tab=d.tab;closeSheet(true);render();window.scrollTo(0,0);try{history.replaceState(null,'','#'+d.tab)}catch(_){}}
+  if(d.term)showTerm(d.term);
+  else if(d.act==='gclose')$('#gloss').hidden=true;
+  else if(d.act==='share')shareCurrent();
+  else if(d.act==='install')installGuide();
+  else if(d.fav)toggleFav(d.fav);
+  else if(d.tab){S.tab=d.tab;closeSheet(true);render();window.scrollTo(0,0);try{history.replaceState(null,'','#'+d.tab)}catch(_){}}
   else if(d.ch){S.tab='home';S.ch=d.ch;closeSheet(true);render();window.scrollTo(0,0);}
   else if(d.txall){S.txAll=d.txall==='1';render();}
   else if(d.txfa){S.txFA=d.txfa==='1';render();}
@@ -2068,7 +2245,7 @@ document.addEventListener('click',e=>{
     toast(off?`已取消主队${team(t).n}`:`${team(t).n}已设为主队，会显示在头条顶部`);render();refreshSheet();
   }
   else if(d.themeSet){theme=d.themeSet;store.set('theme',theme);applyTheme();render();}
-});
+}
 document.addEventListener('input',e=>{if(e.target.id==='search-in')$('#search-res').innerHTML=sheetSearch(e.target.value);
   else if(e.target.id==='pk-in')$('#pk-res').innerHTML=pkResults(S.sheet.id,e.target.value);});
 document.addEventListener('submit',e=>{
@@ -2080,11 +2257,12 @@ document.addEventListener('submit',e=>{
   const f=e.target.closest('[data-comment]');if(!f)return;e.preventDefault();
   const v=$('#cmt-in').value.trim();if(!v)return;
   (myComments[f.dataset.comment]=myComments[f.dataset.comment]||[]).unshift(['棒球新手',v,'刚刚',0]);
-  toast('评论已发布');refreshSheet();
+  store.set('comments',myComments);toast('评论已发布（只保存在这台设备上）');refreshSheet();
 });
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'&&document.getElementById('vbox'))closeVideo();
-  else if(e.key==='Escape'&&S.sheet)closeSheet();
+  if(e.key==='Escape'&&$('#gloss')&&!$('#gloss').hidden)$('#gloss').hidden=true;
+  else if(e.key==='Escape'&&document.getElementById('vbox')){closeVideo();syncHist();}
+  else if(e.key==='Escape'&&S.sheet){closeSheet();syncHist();}
   else if((e.key==='Enter'||e.key===' ')&&e.target.matches&&e.target.matches('[role="link"]')){e.preventDefault();e.target.click();}
 });
 
