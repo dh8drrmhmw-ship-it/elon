@@ -91,20 +91,32 @@ if (!cn.length) {
     { name: 'Google 字体（样式表）', host: 'fonts.googleapis.com', path: '/css2', query: 'family=Noto+Sans+SC:wght@400&display=swap' },
     { name: 'Google 字体（字体文件）', host: 'fonts.gstatic.com', path: '/', method: 'HEAD' },
     { name: 'AI 战报（Anthropic 接口）', host: 'api.anthropic.com', path: '/v1/messages', method: 'HEAD' },
+    // 对照：节点真的在防火墙内，Google 应该打不开、百度应该能打开
+    { name: '对照：Google 搜索', host: 'www.google.com', path: '/', method: 'HEAD' },
+    { name: '对照：百度', host: 'www.baidu.com', path: '/', method: 'HEAD' },
   ].filter(Boolean);
 
   const results = [];
-  for (const t of targets) { console.error('测试', t.name); results.push(await httpCheck(t)); }
+  for (const t of targets) {
+    console.error('测试', t.name);
+    const r = await httpCheck(t);
+    // 同一个地址从 GitHub 的美国服务器访问一次，作为对照
+    try {
+      const u = `https://${t.host}${t.path}${t.query ? '?' + t.query : ''}`;
+      r.us = `HTTP ${(await fetch(u, { method: t.method || 'GET', signal: AbortSignal.timeout(15e3) })).status}`;
+    } catch (e) { r.us = e.name === 'TimeoutError' ? '超时' : e.message; }
+    results.push(r);
+  }
 
-  lines.push('## 总览', '', '| 内容 | 地址 | 能打开的节点 | 平均耗时 |', '|---|---|---|---|');
+  lines.push('## 总览', '', '| 内容 | 地址 | 能打开的节点 | 平均耗时 | 美国对照 |', '|---|---|---|---|---|');
   for (const r of results) {
     const ok = r.rows.filter(x => x.ok);
     const avg = ok.length ? ok.reduce((s, x) => s + (x.total || 0), 0) / ok.length : null;
-    lines.push(`| ${r.name} | \`${r.host}\` | ${r.error ? r.error : `${ok.length} / ${r.rows.length}`} | ${ms(avg)} |`);
+    lines.push(`| ${r.name} | \`${r.host}\` | ${r.error ? r.error : `${ok.length} / ${r.rows.length}`} | ${ms(avg)} | ${r.us} |`);
   }
 
   lines.push('', '## DNS 是否被污染', '', 'GitHub Pages 的正确地址是 185.199.108–111.153，返回别的地址说明域名解析被篡改。', '');
-  for (const host of [PAGES, 'statsapi.mlb.com']) {
+  for (const host of [PAGES, 'statsapi.mlb.com', 'fonts.googleapis.com', 'www.google.com']) {
     console.error('DNS', host);
     const d = await dnsCheck(host);
     lines.push(`### ${host}`, '', '| 节点 | 解析结果 |', '|---|---|');
