@@ -1497,6 +1497,8 @@ async function loadPlays(pk){
       (r.credits||[]).forEach(c=>o.cred.push({pos:c.position&&c.position.abbreviation,cr:c.credit}));if(m.isOut&&m.outNumber)o.on=m.outNumber;
       if(m.isOut){o.out=true;o.e=m.outBase?BASE_IX[m.outBase]||o.s:o.s;}else if(m.end)o.e=BASE_IX[m.end]||0;else if(!o.out&&o.e===0)o.e=o.s;
       if(rd.isScoringEvent)o.score=true;});
+    // 三振出局的打者是在本垒出局的（官方数据也会记成“一垒出局”），不要让他跑
+    if(/strikeout/.test(p.result.eventType||''))Object.values(rs).forEach(o=>{if(o.s===0&&o.out)o.e=0;});
     return {inn:p.about.inning,top:p.about.halfInning==='top',desc:p.result.description,et:p.result.eventType||'',as:p.result.awayScore,hs:p.result.homeScore,outs:(p.count||{}).outs||0,
       bat:p.matchup&&p.matchup.batter,pit:p.matchup&&p.matchup.pitcher,
       pitches:pe.map(e=>({code:e.details.type&&e.details.type.code,mph:e.pitchData&&e.pitchData.startSpeed,call:e.details.call&&e.details.call.description,k:e.details.isInPlay?'play':e.details.isStrike?'strike':'ball'})),
@@ -1707,7 +1709,9 @@ function simDraw(){
   // 出局提示：传到垒上那一刻弹出“出局！”，第二个出局是“双杀！”
   const outSegs=segs.filter(x=>x.node.out&&x.node.base!=null),lastOut=done?null:[...outSegs].reverse().find(x=>t>=x.t1&&t<x.t1+1300);
   const caughtNode=ch&&ch.nodes[0].caught&&!done&&t>=T.P+T.H&&t<T.P+T.H+1300?ch.nodes[0]:null;
-  if(lastOut||caughtNode){const k=lastOut?outSegs.indexOf(lastOut):0,pt=lastOut?lastOut.b:land;q.flash.style.display='';q.flash.setAttribute('x',pt[0]);q.flash.setAttribute('y',pt[1]-7);
+  const kNow=/strikeout/.test(p.et)&&!done&&t>=T.P-150&&t<T.P+1300&&p.run.some(r=>r.s===0&&r.out);
+  if(kNow){q.flash.style.display='';q.flash.setAttribute('x',HP[0]);q.flash.setAttribute('y',HP[1]-12);q.flash.textContent='三振！';}
+  else if(lastOut||caughtNode){const k=lastOut?outSegs.indexOf(lastOut):0,pt=lastOut?lastOut.b:land;q.flash.style.display='';q.flash.setAttribute('x',pt[0]);q.flash.setAttribute('y',pt[1]-7);
     q.flash.textContent=caughtNode&&!lastOut?'接杀！':k===1?'双杀！':k===2?'三杀！':'出局！';}else q.flash.style.display='none';
   // 解说
   const head=`${p.inn}局${p.top?'上':'下'} · ${esc(team(off.t).n)}进攻 · ${esc(shortName(p.pit&&p.pit.fullName))} 对 ${esc(shortName(p.bat&&p.bat.fullName))}`;
