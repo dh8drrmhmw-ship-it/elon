@@ -1682,7 +1682,7 @@ function simDraw(){
   // 每个参与传球的野手的目标位置：接球的人跑到落点，接传球的人跑去补位（垒包）
   const goal={};if(ch&&!done){const n0=ch.nodes[0];goal[n0.pos]={to:land,t0:T.P,t1:T.P+T.H};
     segs.forEach(sg=>{const k=sg.node.pos;if(sg.carry)goal[k]={to:sg.b,t0:sg.t0,t1:sg.t1,from:land};else if(sg.node.base!=null&&!goal[k])goal[k]={to:sg.b,t0:T.P,t1:T.P+T.H+200};});}
-  const FR={f:[],r:[],dc:DC,oc:OC}; // 这一帧的画面数据，3D 画面照着它画
+  const FR={f:[],r:[],dc:DC,oc:OC,dab:def.t,oab:off.t,hab:g.h.t}; // 这一帧的画面数据，3D 画面照着它画
   const fds=[['P',MOUND,{no:pitNo,n:p.pit&&p.pit.fullName}],...Object.entries(FIELD_POS).map(([k,xy])=>[k,xy,posMap[k]])];
   [...q.dg.children].forEach((el,i)=>{const [k,xy,who]=fds[i];let pos=xy;
     if(k===chase&&land&&!done&&t>T.P){const d=Math.hypot(xy[0]-land[0],xy[1]-land[1]),f=Math.min(1,ease((t-T.P)/(T.H+500))*Math.min(1,30/d));pos=lerp(xy,land,f*.9);}
@@ -1695,10 +1695,10 @@ function simDraw(){
   if(!done){
     pre.bases.forEach((id,bi)=>{if(id&&!moving.has(id))dots.push({xy:BASE_XY[bi],n:SIM.names[id]});});
     p.run.forEach(r=>{const sg=segs.find(x=>x.node.runner===r.id),outNow=r.out&&(sg?t>=sg.t1:fr>=1),xy=basePath(r.s,r.e,fr),gone=fr>=1&&(r.out||r.e===4);
-      dots.push({xy:r.s===0&&fr<=0?[HP[0]-8,HP[1]-4]:xy,n:r.n,out:outNow,fade:gone&&(!sg||t>sg.t1+900)});});
-    if(!p.run.some(r=>r.s===0)&&p.bat)dots.push({xy:[HP[0]-8,HP[1]-4],n:p.bat.fullName,fade:after});
+      dots.push({xy:r.s===0&&fr<=0?[HP[0]-8,HP[1]-4]:xy,n:r.n,out:outNow,fade:gone&&(!sg||t>sg.t1+900),bat:r.s===0&&fr<=0});});
+    if(!p.run.some(r=>r.s===0)&&p.bat)dots.push({xy:[HP[0]-8,HP[1]-4],n:p.bat.fullName,fade:after,bat:!after});
   }else SIM.post.bases.forEach((id,bi)=>{if(id)dots.push({xy:BASE_XY[bi],n:SIM.names[id]});});
-  dots.slice(0,5).forEach(d=>FR.r.push({xy:d.xy,n:shortName(d.n),out:d.out,fade:d.fade}));
+  dots.slice(0,5).forEach(d=>FR.r.push({xy:d.xy,n:shortName(d.n),out:d.out,fade:d.fade,bat:d.bat}));
   [...q.rg.children].forEach((el,i)=>{const d=dots[i];if(!d){el.style.display='none';return;}el.style.display='';
     el.setAttribute('transform',`translate(${d.xy[0].toFixed(1)},${d.xy[1].toFixed(1)})`);el.style.opacity=d.fade?.25:1;
     const c=el.children;c[0].setAttribute('fill',d.out?'#d22d49':'#fff');c[0].setAttribute('stroke',OC);c[0].setAttribute('stroke-width','1.6');c[1].textContent='';c[2].setAttribute('y','-6.5');c[2].setAttribute('font-weight','700');c[2].textContent=shortName(d.n);});
@@ -1752,6 +1752,8 @@ function simDraw(){
 }
 
 /* ---------- 比赛画面 3D：用 three.js 把同一份画面数据画成立体球场（按需下载，放在本站 vendor/ 下） ---------- */
+// 球员是用几何体拼的低多边形小人：主队白色队服、客队灰色队服，帽子、头盔、腰带、袜子用球队颜色。
+// 球场按主队换草皮花纹和外野墙（花纹是示意，不是逐一复刻），四周有看台和球迷、牛棚、教练区、休息区、裁判、灯塔。
 const S3={state:'idle'};
 function s3Load(){
   if(S3.state!=='idle')return;S3.state='loading';
@@ -1761,25 +1763,80 @@ function s3Load(){
 }
 // 球场坐标（Gameday 250×250）→ 3D：本垒在原点，外野朝 -Z，Y 向上
 const W3=(xy,h)=>new THREE.Vector3(xy[0]-HP[0],h||0,xy[1]-HP[1]);
-function s3FieldTexture(){
+const fenceR=a=>150+(Math.abs(a)<Math.PI/8?8:0)*Math.cos(a*2);
+const polar=(a,r)=>[HP[0]+r*Math.sin(a),HP[1]-r*Math.cos(a)];
+// 各主场的草皮花纹和外野墙：mow 花纹，wall 墙色，monster 芬威绿色大墙，ivy 瑞格利常春藤
+const PARKS={BOS:{mow:'diamond',wall:'#2b5d3d',monster:1},CHC:{mow:'vert',wall:'#2e6a2b',ivy:1},NYY:{mow:'check',wall:'#16365c'},LAD:{mow:'arc',wall:'#1b3e73'},
+  SF:{mow:'horiz',wall:'#2b2b2b'},TB:{mow:'diag',wall:'#1d3a5c'},MIL:{mow:'check',wall:'#1d3a5c'},TOR:{mow:'arc',wall:'#1c3f73'},SEA:{mow:'diamond',wall:'#1f4038'},
+  ATL:{mow:'vert',wall:'#1d2d4f'},PHI:{mow:'diamond',wall:'#1f4a35'},HOU:{mow:'horiz',wall:'#2a3445'},NYM:{mow:'diag',wall:'#1d3f6e'},STL:{mow:'arc',wall:'#1f4a35'}};
+const MOWS=['diag','check','vert','horiz','arc','diamond'];
+const parkOf=ab=>PARKS[ab]||{mow:MOWS[[...ab].reduce((a,c)=>a+c.charCodeAt(0),0)%MOWS.length],wall:'#1f4a35'};
+function s3FieldTexture(park){
   const N=1024,k=N/250,cv=document.createElement('canvas');cv.width=cv.height=N;const c=cv.getContext('2d');
-  const fair=(r,a)=>[HP[0]+r*Math.sin(a),HP[1]-r*Math.cos(a)],q=Math.PI/4,arc=[];
-  for(let a=-q;a<=q+1e-6;a+=q/24)arc.push(fair(150+(Math.abs(a)<q*.5?8:0)*Math.cos(a*2),a));
+  const q=Math.PI/4,arc=[];for(let a=-q;a<=q+1e-6;a+=q/24)arc.push(polar(a,fenceR(a)));
   const path=pts=>{c.beginPath();pts.forEach((p,i)=>c[i?'lineTo':'moveTo'](p[0]*k,p[1]*k));c.closePath();};
-  c.fillStyle='#173d26';c.fillRect(0,0,N,N);
-  c.save();path([HP,...arc]);c.clip();
-  for(let i=-N;i<N*2;i+=28){c.fillStyle=(i/28)%2?'#2f7d46':'#2a7340';c.beginPath();c.moveTo(i,0);c.lineTo(i+14,0);c.lineTo(i+14-N,N);c.lineTo(i-N,N);c.fill();}
+  const G1='#2f7d46',G2='#276c3c';
+  c.fillStyle='#24603a';c.fillRect(0,0,N,N); // 界外草地
+  c.save();path([HP,...arc]);c.clip();c.fillStyle=G1;c.fillRect(0,0,N,N);c.fillStyle=G2;const S=14*k;
+  // 修剪花纹
+  if(park.mow==='vert')for(let x=0;x<N;x+=2*S)c.fillRect(x,0,S,N);
+  else if(park.mow==='horiz')for(let y=0;y<N;y+=2*S)c.fillRect(0,y,N,S);
+  else if(park.mow==='arc')for(let r=Math.ceil(240*k/S)*S;r>0;r-=S){c.fillStyle=(r/S)%2?G2:G1;c.beginPath();c.arc(HP[0]*k,HP[1]*k,r,0,7);c.fill();}
+  else if(park.mow==='check'){c.save();c.translate(HP[0]*k,HP[1]*k);c.rotate(q);for(let i=-20;i<20;i++)for(let j=-20;j<20;j++)if((i+j)%2)c.fillRect(i*S,j*S,S,S);c.restore();}
+  else{const band=ang=>{c.save();c.translate(HP[0]*k,HP[1]*k);c.rotate(ang);for(let x=-N*2;x<N*2;x+=2*S)c.fillRect(x,-N*2,S,N*4);c.restore();};
+    if(park.mow==='diamond'){c.globalAlpha=.55;band(q);band(-q);c.globalAlpha=1;}else band(q);}
+  // 警告跑道（外野墙前的土）
+  c.strokeStyle='#8a5f3d';c.lineWidth=7*k;c.beginPath();arc.forEach((p,i)=>{const a=-q+i*q/24,pp=polar(a,fenceR(a)-3.5);c[i?'lineTo':'moveTo'](pp[0]*k,pp[1]*k);});c.stroke();
   c.fillStyle='#9c6b45';c.beginPath();c.arc(MOUND[0]*k,(MOUND[1]+2)*k,40*k,0,7);c.fill();c.restore();
-  c.fillStyle='#2e7a44';path(BASE_XY.slice(0,4).map(b=>lerp(b,MOUND,.17)));c.fill();
+  c.fillStyle=G1;path(BASE_XY.slice(0,4).map(b=>lerp(b,MOUND,.17)));c.fill();
   c.fillStyle='#9c6b45';[[HP,7],[MOUND,4.5]].forEach(([p,r])=>{c.beginPath();c.arc(p[0]*k,p[1]*k,r*k,0,7);c.fill();});
-  c.strokeStyle='#fff';c.lineWidth=.8*k;c.beginPath();c.moveTo(...fair(150,-q).map(v=>v*k));c.lineTo(HP[0]*k,HP[1]*k);c.lineTo(...fair(150,q).map(v=>v*k));c.stroke();
+  c.strokeStyle='#fff';c.lineWidth=.8*k;c.beginPath();c.moveTo(...polar(-q,150).map(v=>v*k));c.lineTo(HP[0]*k,HP[1]*k);c.lineTo(...polar(q,150).map(v=>v*k));c.stroke();
   c.globalAlpha=.5;c.lineWidth=.5*k;path(BASE_XY.slice(0,4));c.stroke();c.globalAlpha=1;
-  c.fillStyle='#fff';BASE_XY.slice(1,4).forEach(b=>{c.save();c.translate(b[0]*k,b[1]*k);c.rotate(Math.PI/4);c.fillRect(-2*k,-2*k,4*k,4*k);c.restore();});
+  // 打击区、教练区（粉笔框）、准备打击区
+  c.lineWidth=.4*k;[[-3.4,0],[3.4,0]].forEach(([dx])=>c.strokeRect((HP[0]+dx-1.5)*k,(HP[1]-3)*k,3*k,6*k));
+  COACH_XY.forEach(p=>{c.save();c.translate(p[0]*k,p[1]*k);c.rotate(p[0]<HP[0]?-q:q);c.strokeRect(-2*k,-4*k,4*k,8*k);c.restore();});
+  [[105,214],[146,214]].forEach(p=>{c.beginPath();c.arc(p[0]*k,p[1]*k,2*k,0,7);c.stroke();});
+  c.fillStyle='#fff';BASE_XY.slice(1,4).forEach(b=>{c.save();c.translate(b[0]*k,b[1]*k);c.rotate(q);c.fillRect(-2*k,-2*k,4*k,4*k);c.restore();});
   c.fillRect((MOUND[0]-1.6)*k,(MOUND[1]-.4)*k,3.2*k,.8*k);
   const t=new THREE.CanvasTexture(cv);t.anisotropy=4;return {tex:t,arc};
 }
+const COACH_XY=[[162,180],[88.8,180]],UMP_XY=[[125.4,214],[156,185],[94.8,185]];
+const s3M={},s3G={};
+const MAT=(c,shiny)=>s3M[c+(shiny?'s':'')]||(s3M[c+(shiny?'s':'')]=shiny?new THREE.MeshPhongMaterial({color:c,shininess:90}):new THREE.MeshLambertMaterial({color:c}));
+const GEO=(k,f)=>s3G[k]||(s3G[k]=f());
+const kitOf=(ab,home)=>({body:home?'#f2f1ec':'#9fa4aa',trim:team(ab).c,cap:team(ab).c});
+// 低多边形小人：帽子/头盔、躯干、腰带、手臂、腿、球鞋；可选手套、球棒；蹲姿给捕手
+function s3Human(o){
+  const g=new THREE.Group(),SK=MAT(o.skin||'#e3b98f'),parts={body:[],trim:[],cap:[]};
+  const cyl=(a,b,h)=>GEO('c'+a+b+h,()=>new THREE.CylinderGeometry(a,b,h,10));
+  const mk=(gm,m,x,y,z,role)=>{const s=new THREE.Mesh(gm,m);s.position.set(x,y,z);if(role)parts[role].push(s);return s;};
+  const legs=[-1,1].map(sd=>{const L=new THREE.Group();L.position.set(sd*.3,2.05,0);
+    L.add(mk(cyl(.3,.26,1.25),SK,0,-.62,0,'body'),mk(cyl(.26,.22,.8),SK,0,-1.6,0,'trim'),mk(GEO('shoe',()=>new THREE.BoxGeometry(.36,.22,.66)),MAT('#141414'),0,-2,.12));g.add(L);return L;});
+  const arms=[-1,1].map(sd=>{const A=new THREE.Group();A.position.set(sd*.8,3.62,0);
+    A.add(mk(cyl(.21,.19,.7),SK,0,-.35,0,'body'),mk(cyl(.17,.15,.78),SK,0,-1.08,0));
+    if(o.glove&&sd<0)A.add(mk(GEO('glove',()=>new THREE.SphereGeometry(.36,8,6)),MAT('#7a4a22'),0,-1.55,.08));g.add(A);return A;});
+  g.add(mk(cyl(.64,.5,1.7),SK,0,2.95,0,'body'),mk(cyl(.52,.52,.16),SK,0,2.1,0,'trim'),mk(GEO('head',()=>new THREE.SphereGeometry(.46,12,10)),SK,0,4.22,0));
+  if(o.helmet){g.add(mk(GEO('helm',()=>new THREE.SphereGeometry(.55,12,8,0,Math.PI*2,0,Math.PI*.6)),SK,0,4.28,0,'cap'),mk(GEO('ear',()=>new THREE.BoxGeometry(.5,.06,.38)),SK,0,4.3,.5,'cap'));}
+  else g.add(mk(GEO('cap',()=>new THREE.SphereGeometry(.5,12,6,0,Math.PI*2,0,Math.PI/2)),SK,0,4.36,0,'cap'),mk(GEO('brim',()=>new THREE.BoxGeometry(.62,.06,.5)),SK,0,4.38,.56,'cap'));
+  let bat=null;if(o.bat){bat=mk(GEO('bat',()=>new THREE.CylinderGeometry(.07,.14,2.7,8)),MAT('#c79a5b'),.55,4.7,-.35);bat.rotation.set(-.5,0,-.45);g.add(bat);}
+  const sh=mk(GEO('sh',()=>new THREE.CircleGeometry(1.1,16)),S3.shadowM,0,.05,0);sh.rotation.x=-Math.PI/2;g.add(sh);
+  g.scale.setScalar(1.15);if(o.crouch){g.scale.y=.78;}
+  g.userData={legs,arms,parts,phase:Math.random()*6,prev:null,kit:'',helmet:!!o.helmet,bat};
+  return g;
+}
+function s3Kit(g,k){
+  const key=k.body+k.trim+k.cap;if(g.userData.kit===key)return;g.userData.kit=key;const P=g.userData.parts;
+  P.body.forEach(m=>m.material=MAT(k.body));P.trim.forEach(m=>m.material=MAT(k.trim));P.cap.forEach(m=>m.material=MAT(k.cap,g.userData.helmet));
+}
+// 位置 + 朝向 + 跑步摆臂摆腿
+function s3Pose(g,xy,face,dt){
+  const u=g.userData,pos=W3(xy),prev=u.prev||pos;const v=dt>0?pos.distanceTo(prev)/dt*1000:0;u.prev=pos;g.position.copy(pos);
+  if(v>2){const d=pos.clone().sub(prev);g.rotation.y=Math.atan2(d.x,d.z);}
+  else if(face){const f=W3(face);g.rotation.y=Math.atan2(f.x-pos.x,f.z-pos.z);}
+  const run=Math.min(1,v/14);u.phase+=dt/1000*(3+v*.5);const sw=Math.sin(u.phase)*.95*run;
+  u.legs[0].rotation.x=sw;u.legs[1].rotation.x=-sw;u.arms[0].rotation.x=-sw*.8;u.arms[1].rotation.x=sw*.8;
+}
 const s3Tex={};
-// 文字标签（名字、出局提示）：画成贴图，按内容缓存
 function s3Text(txt,color,big){
   const key=txt+'|'+color+'|'+(big?1:0);if(s3Tex[key])return s3Tex[key];
   const fs=big?96:44,cv=document.createElement('canvas'),c=cv.getContext('2d');c.font=`700 ${fs}px sans-serif`;
@@ -1788,40 +1845,83 @@ function s3Text(txt,color,big){
   if(!big){c.fillStyle='rgba(10,26,16,.72)';c.beginPath();c.roundRect?c.roundRect(0,0,w,h,h/2):c.rect(0,0,w,h);c.fill();}
   else{c.lineWidth=12;c.strokeStyle='#0a1a10';c.strokeText(txt,w/2,h/2+2);}
   c.fillStyle=color;c.fillText(txt,w/2,h/2+2);
-  const tex=new THREE.CanvasTexture(cv);return s3Tex[key]={tex,ratio:w/h};
+  return s3Tex[key]={tex:new THREE.CanvasTexture(cv),ratio:w/h};
 }
+const s3Sprite=()=>{const sp=new THREE.Sprite(new THREE.SpriteMaterial({transparent:true,depthTest:false,sizeAttenuation:false}));sp.renderOrder=5;return sp;};
 function s3Label(sp,txt,color,size,big){
-  if(sp.userData.txt===txt+color){return;}sp.userData.txt=txt+color;
+  if(sp.userData.txt===txt+color)return;sp.userData.txt=txt+color;
   if(!txt){sp.visible=false;return;}const t=s3Text(txt,color,big);sp.material.map=t.tex;sp.material.needsUpdate=true;sp.scale.set(size*t.ratio,size,1);sp.visible=true;
 }
-function s3Person(){
-  const g=new THREE.Group(),body=new THREE.Mesh(new THREE.CylinderGeometry(1.3,1.6,4.6,14),new THREE.MeshLambertMaterial({color:'#fff'}));body.position.y=2.6;
-  const head=new THREE.Mesh(new THREE.SphereGeometry(1.15,14,10),new THREE.MeshLambertMaterial({color:'#e9c7a6'}));head.position.y=5.9;
-  const cap=new THREE.Mesh(new THREE.SphereGeometry(1.2,14,8,0,Math.PI*2,0,Math.PI/2),new THREE.MeshLambertMaterial({color:'#fff'}));cap.position.y=6.1;
-  const sh=new THREE.Mesh(new THREE.CircleGeometry(1.8,16),new THREE.MeshBasicMaterial({color:'#000',transparent:true,opacity:.3}));sh.rotation.x=-Math.PI/2;sh.position.y=.05;
-  const lab=new THREE.Sprite(new THREE.SpriteMaterial({transparent:true,depthTest:false,sizeAttenuation:false}));lab.position.y=8.5;lab.renderOrder=5;
-  g.add(body,head,cap,sh,lab);g.userData={body,cap,lab};return g;
+// 静态的球场部分：按主队重建（草皮、外野墙、看台和球迷、休息区、牛棚、灯塔、裁判）
+function s3Park(hab,aab){
+  const P=parkOf(hab),grp=new THREE.Group(),{tex,arc}=s3FieldTexture(P);
+  const ground=new THREE.Mesh(new THREE.PlaneGeometry(250,250),new THREE.MeshLambertMaterial({map:tex}));ground.rotation.x=-Math.PI/2;ground.position.set(125-HP[0],0,125-HP[1]);grp.add(ground);
+  // 外野墙：芬威左外野是 37 英尺的绿色大墙
+  const pos=[],idx=[],q=Math.PI/4;
+  arc.forEach((p,i)=>{const a=-q+i*q/24,hgt=P.monster&&a<-.25?15:6.5,v=W3(p);pos.push(v.x,0,v.z,v.x,hgt,v.z);if(i){const j=i*2;idx.push(j-2,j-1,j,j-1,j+1,j);}});
+  const wg=new THREE.BufferGeometry();wg.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));wg.setIndex(idx);wg.computeVertexNormals();
+  grp.add(new THREE.Mesh(wg,new THREE.MeshLambertMaterial({color:P.wall,side:THREE.DoubleSide})));
+  if(P.ivy){const iv=new THREE.Mesh(wg,new THREE.MeshLambertMaterial({color:'#3f8a33',side:THREE.DoubleSide,transparent:true,opacity:.75}));iv.scale.set(.995,.9,.995);grp.add(iv);}
+  grp.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(arc.map((p,i)=>{const a=-q+i*q/24;return W3(p,(P.monster&&a<-.25?15:6.5)+.05);})),new THREE.LineBasicMaterial({color:'#ffd166'})));
+  // 界外杆
+  [-q,q].forEach(a=>{const m=new THREE.Mesh(GEO('pole',()=>new THREE.CylinderGeometry(.25,.25,26,6)),MAT('#ffd400'));m.position.copy(W3(polar(a,fenceR(a)),13));grp.add(m);});
+  // 看台：以本垒为圆心一圈，界外区沿边界、外野在墙后（留出牛棚的位置）；本垒正后方留空，不挡镜头
+  const foulD=a=>Math.min(150,24/Math.max(.16,Math.sin(Math.abs(a)-q)));
+  const ROWS=9,seats=[];const base=a=>Math.abs(a)<=q?fenceR(a)+20:foulD(a)+5;
+  let a=-Math.PI*.9;while(a<Math.PI*.9){const r0=base(a);for(let k=0;k<ROWS;k++)seats.push([a,r0+k*2.4,1.3+k*1.7]);a+=2.3/r0;}
+  // 看台的阶梯（灰色斜面）
+  const sp=[],si=[];let n=0;for(let b=-Math.PI*.9;b<Math.PI*.9;b+=.02){const r0=base(b);const i0=W3(polar(b,r0-1.5),.2),o0=W3(polar(b,r0+ROWS*2.4),ROWS*1.7+.8);sp.push(i0.x,i0.y,i0.z,o0.x,o0.y,o0.z);if(n){const j=n*2;si.push(j-2,j-1,j,j-1,j+1,j);}n++;}
+  const sg=new THREE.BufferGeometry();sg.setAttribute('position',new THREE.Float32BufferAttribute(sp,3));sg.setIndex(si);sg.computeVertexNormals();
+  grp.add(new THREE.Mesh(sg,new THREE.MeshLambertMaterial({color:'#4a5058',side:THREE.DoubleSide})));
+  // 球迷：一大半穿主队颜色，也有白色、客队颜色和杂色；空位随机留一些
+  const fans=seats.filter(()=>Math.random()<.86),HC=new THREE.Color(team(hab).c),AC=new THREE.Color(team(aab).c),WH=new THREE.Color('#eeeeee');
+  const MISC=['#c0392b','#2c3e50','#7f8c8d','#16a085','#d35400','#34495e','#8e44ad','#f1c40f'].map(c=>new THREE.Color(c));
+  const bodyI=new THREE.InstancedMesh(GEO('fan',()=>new THREE.BoxGeometry(1.1,1.5,.8)),new THREE.MeshLambertMaterial(),fans.length);
+  const headI=new THREE.InstancedMesh(GEO('fanh',()=>new THREE.SphereGeometry(.42,6,5)),MAT('#d9ad86'),fans.length);
+  const M4=new THREE.Matrix4(),Q=new THREE.Quaternion(),E=new THREE.Euler(),ONE=new THREE.Vector3(1,1,1);
+  fans.forEach(([b,r,h],i)=>{const v=W3(polar(b+(Math.random()-.5)*.004,r),h+.75);E.set(0,Math.atan2(-v.x,-v.z),0);Q.setFromEuler(E);
+    M4.compose(v,Q,ONE);bodyI.setMatrixAt(i,M4);M4.compose(v.clone().setY(h+1.95),Q,ONE);headI.setMatrixAt(i,M4);
+    const rnd=Math.random();bodyI.setColorAt(i,rnd<.55?HC:rnd<.7?WH:rnd<.8?AC:MISC[i%MISC.length]);});
+  grp.add(bodyI,headI);
+  // 休息区：一垒侧主队、三垒侧客队，半地下的棚子
+  const dugs=[];[[1,hab],[-1,aab]].forEach(([sd,ab])=>{const a=sd*Math.PI*.6,r=foulD(a)+1,c=W3(polar(a,r)),dg=new THREE.Group();
+    const back=new THREE.Mesh(GEO('dgb',()=>new THREE.BoxGeometry(22,4,1)),MAT('#2b2f36'));back.position.set(0,1.5,-1.8);
+    const roof=new THREE.Mesh(GEO('dgr',()=>new THREE.BoxGeometry(22,.5,4.5)),MAT(team(ab).c));roof.position.set(0,3.6,0);
+    const floor=new THREE.Mesh(GEO('dgf',()=>new THREE.BoxGeometry(22,.3,4)),MAT('#3a3a3a'));floor.position.set(0,-.4,0);
+    dg.add(back,roof,floor);dg.position.copy(c);dg.lookAt(0,0,c.z<0?-60:-40);dg.rotateY(Math.PI);grp.add(dg);
+    const lab=s3Sprite();s3Label(lab,(ab===hab?'主队':'客队')+'休息区','#cfe3d6',.028);lab.position.copy(c).setY(7);grp.add(lab);dugs.push({c,ab,home:ab===hab});});
+  // 牛棚：左右外野墙后各一个，有小投手丘
+  const pens=[];[[-1,aab],[1,hab]].forEach(([sd,ab])=>{const a=sd*.62,r=fenceR(a)+9,c=W3(polar(a,r));
+    const pad=new THREE.Mesh(GEO('pen',()=>new THREE.PlaneGeometry(26,9)),MAT('#2f7d46'));pad.rotation.x=-Math.PI/2;pad.position.copy(c).setY(.06);pad.rotation.z=-a;grp.add(pad);
+    const md=new THREE.Mesh(GEO('pmd',()=>new THREE.CylinderGeometry(2.2,2.6,.35,14)),MAT('#9c6b45'));const mp=polar(a,r);md.position.copy(W3(mp,.15));grp.add(md);
+    const lab=s3Sprite();s3Label(lab,(ab===hab?'主队':'客队')+'牛棚','#cfe3d6',.028);lab.position.copy(c).setY(9);grp.add(lab);pens.push({a,r,ab});});
+  // 灯塔
+  [-1.15,1.15,-2.5,2.5].forEach(b=>{const r=Math.abs(b)<2?fenceR(Math.sign(b)*q)+42:foulD(b)+34,v=W3(polar(b,r));
+    const pole=new THREE.Mesh(GEO('lt',()=>new THREE.CylinderGeometry(.6,.9,48,6)),MAT('#6b7380'));pole.position.copy(v).setY(24);
+    const lamp=new THREE.Mesh(GEO('lamp',()=>new THREE.BoxGeometry(9,4,1.2)),new THREE.MeshBasicMaterial({color:'#fff8d6'}));lamp.position.copy(v).setY(49);lamp.lookAt(0,0,-60);grp.add(pole,lamp);});
+  return {grp,dugs,pens};
 }
 function s3Setup(){
   const r=new THREE.WebGLRenderer({antialias:true});r.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
-  const scene=new THREE.Scene();scene.background=new THREE.Color('#0b1d13');scene.fog=new THREE.Fog('#0b1d13',260,420);
-  scene.add(new THREE.HemisphereLight('#e8f2ff','#24402c',.8));const sun=new THREE.DirectionalLight('#fff',.55);sun.position.set(-60,120,40);scene.add(sun);
-  const {tex,arc}=s3FieldTexture();
-  const ground=new THREE.Mesh(new THREE.PlaneGeometry(250,250),new THREE.MeshLambertMaterial({map:tex}));ground.rotation.x=-Math.PI/2;ground.position.set(125-HP[0],0,125-HP[1]);scene.add(ground);
-  const out=new THREE.Mesh(new THREE.PlaneGeometry(900,900),new THREE.MeshLambertMaterial({color:'#123222'}));out.rotation.x=-Math.PI/2;out.position.y=-.05;scene.add(out);
-  // 外野护栏：沿全垒打墙的弧线立一圈
-  const pos=[],idx=[];arc.forEach((p,i)=>{const v=W3(p);pos.push(v.x,0,v.z,v.x,7,v.z);if(i){const a=i*2;idx.push(a-2,a-1,a,a-1,a+1,a);}});
-  const wg=new THREE.BufferGeometry();wg.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));wg.setIndex(idx);wg.computeVertexNormals();
-  scene.add(new THREE.Mesh(wg,new THREE.MeshLambertMaterial({color:'#0e3a5c',side:THREE.DoubleSide})));
-  const top=new THREE.Line(new THREE.BufferGeometry().setFromPoints(arc.map(p=>W3(p,7.05))),new THREE.LineBasicMaterial({color:'#ffd166'}));scene.add(top);
-  const fd=Array.from({length:9},s3Person),rn=Array.from({length:5},s3Person);[...fd,...rn].forEach(m=>scene.add(m));
-  const ball=new THREE.Mesh(new THREE.SphereGeometry(.85,14,10),new THREE.MeshBasicMaterial({color:'#fff'}));
-  const bsh=new THREE.Mesh(new THREE.CircleGeometry(.9,12),new THREE.MeshBasicMaterial({color:'#000',transparent:true,opacity:.35}));bsh.rotation.x=-Math.PI/2;bsh.position.y=.06;
-  const ring=new THREE.Mesh(new THREE.RingGeometry(1.5,2,24),new THREE.MeshBasicMaterial({color:'#ffd166',side:THREE.DoubleSide,transparent:true,opacity:.9}));
-  const flash=new THREE.Sprite(new THREE.SpriteMaterial({transparent:true,depthTest:false,sizeAttenuation:false}));flash.renderOrder=9;
+  const scene=new THREE.Scene();scene.background=new THREE.Color('#0d1c2c');scene.fog=new THREE.Fog('#0d1c2c',300,520);
+  scene.add(new THREE.HemisphereLight('#eef4ff','#2a4430',.85));const sun=new THREE.DirectionalLight('#fff',.55);sun.position.set(-60,120,40);scene.add(sun);
+  const out=new THREE.Mesh(new THREE.PlaneGeometry(1200,1200),new THREE.MeshLambertMaterial({color:'#1b2a22'}));out.rotation.x=-Math.PI/2;out.position.y=-.08;scene.add(out);
+  S3.shadowM=new THREE.MeshBasicMaterial({color:'#000',transparent:true,opacity:.28,depthWrite:false});
+  const fd=Array.from({length:9},(_,i)=>s3Human({glove:true,crouch:i===1})); // 顺序：P、C、1B、2B、SS、3B、LF、CF、RF
+  const rn=Array.from({length:4},()=>s3Human({helmet:true})),batter=s3Human({helmet:true,bat:true});
+  const coach=COACH_XY.map(()=>s3Human({})),ump=UMP_XY.map((_,i)=>s3Human({crouch:i===0}));
+  ump.forEach(u=>s3Kit(u,{body:'#2a2d33',trim:'#111',cap:'#111'}));
+  const bull=[s3Human({glove:true}),s3Human({glove:true,crouch:true}),s3Human({glove:true}),s3Human({glove:true,crouch:true})];
+  const dug=Array.from({length:6},()=>s3Human({}));
+  [...fd,...rn,batter,...coach,...ump,...bull,...dug].forEach(m=>scene.add(m));
+  const labs=Array.from({length:14},s3Sprite);labs.forEach(l=>scene.add(l));
+  const ball=new THREE.Mesh(new THREE.SphereGeometry(.7,14,10),new THREE.MeshBasicMaterial({color:'#fff'}));
+  const bsh=new THREE.Mesh(new THREE.CircleGeometry(.8,12),S3.shadowM);bsh.rotation.x=-Math.PI/2;bsh.position.y=.06;
+  const ring=new THREE.Mesh(new THREE.RingGeometry(1.4,1.9,24),new THREE.MeshBasicMaterial({color:'#ffd166',side:THREE.DoubleSide,transparent:true,opacity:.9}));
+  const flash=s3Sprite();flash.renderOrder=9;
   scene.add(ball,bsh,ring,flash);
-  const cam=new THREE.PerspectiveCamera(42,4/3,1,900);
-  Object.assign(S3,{r,scene,cam,fd,rn,ball,bsh,ring,flash,eye:new THREE.Vector3(0,44,62),look:new THREE.Vector3(0,0,-50)});
+  const cam=new THREE.PerspectiveCamera(42,4/3,1,1000);
+  Object.assign(S3,{r,scene,cam,fd,rn,batter,coach,ump,bull,dug,labs,ball,bsh,ring,flash,park:null,parkKey:'',last:0,mode:'',fov:42,eye:new THREE.Vector3(0,44,62),look:new THREE.Vector3(0,0,-50)});
 }
 function s3Draw(FR){
   const host=SIM.el&&SIM.el.querySelector('.sim-3d');if(!host)return;
@@ -1829,20 +1929,43 @@ function s3Draw(FR){
   const msg=host.querySelector('.s3-msg');
   if(S3.state!=='ready'){msg.textContent=S3.state==='err'?'这台设备打不开 3D 画面（需要 WebGL），请切回 2D':'正在加载 3D 球场…';msg.style.display='';return;}
   msg.style.display='none';
-  const {r,cam}=S3;if(r.domElement.parentNode!==host)host.prepend(r.domElement);
+  const {r,cam}=S3,now=performance.now(),dt=S3.last?Math.min(100,now-S3.last):16;S3.last=now;
+  if(r.domElement.parentNode!==host)host.prepend(r.domElement);
   const w=host.clientWidth||360,h=Math.round(w*.78);if(r.domElement.width!==Math.round(w*r.getPixelRatio())){r.setSize(w,h);cam.aspect=w/h;cam.updateProjectionMatrix();}
-  FR.f.forEach((f,i)=>{const m=S3.fd[i];if(!m)return;m.position.copy(W3(f.xy));m.userData.body.material.color.set(FR.dc);m.userData.cap.material.color.set(FR.dc);
-    s3Label(m.userData.lab,f.n?`${f.no} ${f.n}`:String(f.no),f.hot?'#ffd166':'#ffffff',.034);m.visible=true;});
-  S3.rn.forEach((m,i)=>{const d=FR.r[i];if(!d){m.visible=false;return;}m.visible=true;m.position.copy(W3(d.xy));
-    m.userData.body.material.color.set(d.out?'#d22d49':'#ffffff');m.userData.cap.material.color.set(FR.oc);
-    m.userData.body.material.transparent=true;m.userData.body.material.opacity=d.fade?.35:1;s3Label(m.userData.lab,d.n,'#ffd166',.036);});
+  // 换了主队（另一场比赛）就重建球场
+  const aab=FR.hab===FR.dab?FR.oab:FR.dab,pk=FR.hab+aab;
+  if(S3.parkKey!==pk){if(S3.park)S3.scene.remove(S3.park.grp);S3.park=s3Park(FR.hab,aab);S3.scene.add(S3.park.grp);S3.parkKey=pk;}
+  const dKit=kitOf(FR.dab,FR.dab===FR.hab),oKit=kitOf(FR.oab,FR.oab===FR.hab);
+  let li=0;const lab=(pos,txt,color,y)=>{const sp=S3.labs[li++];if(!sp)return;sp.position.copy(W3(pos,y||7.6));s3Label(sp,txt,color,.032);};
+  FR.f.forEach((f,i)=>{const m=S3.fd[i];if(!m)return;s3Kit(m,dKit);s3Pose(m,f.xy,HP,dt);m.visible=true;lab(f.xy,f.n?`${f.no} ${f.n}`:String(f.no),f.hot?'#ffd166':'#ffffff',i===1?6:7.6);});
+  // 打者拿球棒站在打击区；其余是跑者
+  const bt=FR.r.find(d=>d.bat),runs=FR.r.filter(d=>d!==bt);
+  S3.batter.visible=!!bt;if(bt){s3Kit(S3.batter,oKit);s3Pose(S3.batter,[HP[0]-3.6,HP[1]],[HP[0]+6,HP[1]],dt);S3.batter.rotation.y=Math.PI/2;lab([HP[0]-3.6,HP[1]],bt.n,'#ffd166');}
+  S3.rn.forEach((m,i)=>{const d=runs[i];if(!d){m.visible=false;return;}m.visible=true;s3Kit(m,d.out?{body:'#d22d49',trim:oKit.trim,cap:oKit.cap}:oKit);s3Pose(m,d.xy,MOUND,dt);
+    m.traverse(o=>{if(o.material&&o.material!==S3.shadowM)o.visible=!d.fade;});lab(d.xy,d.n,'#ffd166');});
+  for(;li<S3.labs.length;li++)S3.labs[li].visible=false;
+  if(FR.badge&&SIM.camAuto)S3.labs.forEach(l=>l.visible=false); // 中外野机位不显示名牌，免得叠在一起
+  // 教练区站进攻方的跑垒指导；裁判；牛棚里两队各一组在热身；休息区里坐着几个人
+  S3.coach.forEach((m,i)=>{s3Kit(m,oKit);s3Pose(m,COACH_XY[i],HP,dt);});
+  S3.ump.forEach((m,i)=>s3Pose(m,UMP_XY[i],i?HP:MOUND,dt));
+  S3.park.pens.forEach((pn,i)=>{const kit=kitOf(pn.ab,pn.ab===FR.hab),p1=S3.bull[i*2],c1=S3.bull[i*2+1];s3Kit(p1,kit);s3Kit(c1,kit);
+    const pp=polar(pn.a,pn.r),cp=polar(pn.a+(pn.a<0?.05:-.05),pn.r);s3Pose(p1,pp,cp,dt);s3Pose(c1,cp,pp,dt);
+    p1.userData.arms[1].rotation.x=-1.6-Math.sin(now/260+i)*1.2;}); // 热身投球的手臂
+  S3.park.dugs.forEach((dg,j)=>{const kit=kitOf(dg.ab,dg.home);for(let k=0;k<3;k++){const m=S3.dug[j*3+k];s3Kit(m,kit);m.position.copy(dg.c).add(new THREE.Vector3((k-1)*5,-.3,0));m.rotation.y=Math.atan2(-dg.c.x,-dg.c.z);m.userData.prev=null;}});
   const B=FR.ball;S3.ball.visible=S3.bsh.visible=!!B;S3.ring.visible=!!B&&FR.throwing;
-  if(B){const y=1.6+(FR.lift||0)*2.4;S3.ball.position.copy(W3(B,y));S3.bsh.position.copy(W3(B,.06));S3.ring.position.copy(S3.ball.position);S3.ring.lookAt(cam.position);}
+  if(B){const y=1.8+(FR.lift||0)*2.4;S3.ball.position.copy(W3(B,y));S3.bsh.position.copy(W3(B,.06));S3.ring.position.copy(S3.ball.position);S3.ring.lookAt(cam.position);}
   if(FR.flash){S3.flash.position.copy(W3(FR.flash.xy,14));s3Label(S3.flash,FR.flash.t,'#ff5468',.1,true);}else S3.flash.visible=false;
-  // 镜头：本垒后上方的转播视角；球去外野时拉高、跟着球
-  const far=FR.wide&&B,eye=far?new THREE.Vector3((B[0]-HP[0])*.25,92,72):new THREE.Vector3(0,44,62),look=far?W3(B,0).multiplyScalar(.6).add(new THREE.Vector3(0,0,-30)):new THREE.Vector3(0,0,-50);
-  if(!SIM.camAuto){eye.set(0,95,58);look.set(0,0,-70);}
-  S3.eye.lerp(eye,.06);S3.look.lerp(look,.08);cam.position.copy(S3.eye);cam.lookAt(S3.look);
+  // 镜头（像电视转播）：投球时切到中外野机位，从投手背后长焦看本垒；球打出去切回本垒后上方的高机位，球去外野就拉高跟球；「全场」时高空俯视
+  const far=FR.wide&&B,mode=!SIM.camAuto?'all':FR.badge?'cf':far?'far':'home';
+  const eye=new THREE.Vector3(),look=new THREE.Vector3();let fov=42;
+  if(mode==='cf'){eye.set(-11,17,-98);look.set(-1,3.2,2);fov=15;}
+  else if(mode==='far'){eye.set((B[0]-HP[0])*.25,92,72);look.copy(W3(B,0).multiplyScalar(.6)).add(new THREE.Vector3(0,0,-30));}
+  else if(mode==='all'){eye.set(0,110,75);look.set(0,0,-80);}
+  else{eye.set(0,40,58);look.set(0,0,-50);}
+  if(S3.mode!==mode&&(mode==='cf'||S3.mode==='cf')){S3.eye.copy(eye);S3.look.copy(look);S3.fov=fov;} // 机位切换用硬切
+  else{S3.eye.lerp(eye,.06);S3.look.lerp(look,.08);S3.fov+=(fov-S3.fov)*.08;}
+  S3.mode=mode;if(Math.abs(cam.fov-S3.fov)>.01){cam.fov=S3.fov;cam.updateProjectionMatrix();}
+  cam.position.copy(S3.eye);cam.lookAt(S3.look);
   const bd=host.querySelector('.s3-badge');
   if(FR.badge){bd.style.display='';bd.innerHTML=`<b>${esc(FR.badge[0])}</b>${FR.badge[1]?`<span style="color:${FR.badge[2]}">${esc(FR.badge[1])}</span>`:''}`;}else bd.style.display='none';
   r.render(S3.scene,cam);
