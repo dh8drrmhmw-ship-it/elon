@@ -1488,7 +1488,7 @@ const HP=[125.4,198.3],MOUND=[125.4,174.1],BASE_XY=[HP,[150.9,172.8],[125.4,147.
 const FIELD_POS={C:[125.4,208],'1B':[160,160],'2B':[141,139],SS:[109,139],'3B':[91,160],LF:[82,100],CF:[125.4,80],RF:[169,100]};
 const BASE_IX={'1B':1,'2B':2,'3B':3,'4B':4,score:4};
 // 镜头：平时拉近内野，球飞向外野时拉远；比例和画面一致（226:192）
-const PT=800; // 每一球演多久（毫秒），留时间看清球种和球速
+const PT=900,REL=300,FLY=350; // 每一球演多久（毫秒）；前 REL 是投手的投球动作，之后球飞 FLY 到本垒
 const CAM_WIDE=[12,30,226,192],CAM_NEAR=[62,111,126,107];
 // 守备球员名字摆放：一二垒放右边，三垒游击放左边，外野放下面，免得和垒上跑者的名字叠在一起
 const NAME_AT={P:[7,1.8,'start'],C:[7,1.8,'start'],'1B':[7,1.8,'start'],'2B':[7,-2.5,'start'],SS:[-7,-2.5,'end'],'3B':[-7,1.8,'end'],LF:[0,9.5,'middle'],CF:[0,9.5,'middle'],RF:[0,9.5,'middle']};
@@ -1704,7 +1704,7 @@ function simDraw(){
     const c=el.children;c[0].setAttribute('fill',d.out?'#d22d49':'#fff');c[0].setAttribute('stroke',OC);c[0].setAttribute('stroke-width','1.6');c[1].textContent='';c[2].setAttribute('y','-6.5');c[2].setAttribute('font-weight','700');c[2].textContent=shortName(d.n);});
   // 球：先一球一球投，再飞向落点；高飞球画成“升高”（变大、和影子分开）
   let ball=null,lift=0;
-  if(!done&&t<T.P){const k=t%PT;if(k<350)ball=lerp(MOUND,HP,k/350);}
+  if(!done&&t<T.P){const k=t%PT;if(k>=REL&&k<REL+FLY)ball=lerp(MOUND,HP,(k-REL)/FLY);}
   else if(land&&!done&&t<T.P+T.H){const f=ease((t-T.P)/T.H);ball=lerp(HP,land,f);const air=/fly|line|popup/.test(p.hit.t);lift=air?Math.sin(Math.min(1,(t-T.P)/T.H)*Math.PI)*(/popup/.test(p.hit.t)?14:p.hit.t==='line_drive'?4:10):0;}
   else if(land&&!done&&segNow){const f=(t-segNow.t0)/(segNow.t1-segNow.t0);ball=lerp(segNow.a,segNow.b,f);lift=segNow.carry?0:Math.sin(f*Math.PI)*3;}
   else if(land&&!done&&t<T.end-1800+400)ball=segDone.length?segDone[segDone.length-1].b:land;
@@ -1716,7 +1716,7 @@ function simDraw(){
   q.trail.style.display=throwing?'':'none';if(throwing){q.trail.setAttribute('x1',segNow.a[0]);q.trail.setAttribute('y1',segNow.a[1]);q.trail.setAttribute('x2',segNow.b[0]);q.trail.setAttribute('y2',segNow.b[1]);}
   // 球种、球速标牌：投出就显示球种和球速，球到本垒后显示判定
   const pbOn=!done&&t<T.P&&shown[j];q.pb.style.display=pbOn?'':'none';
-  if(pbOn){const x=shown[j],arrived=t%PT>=350,[l1,l2]=q.pb.querySelectorAll('text');
+  if(pbOn){const x=shown[j],arrived=t%PT>=REL+FLY,[l1,l2]=q.pb.querySelectorAll('text');
     l1.textContent=`${PITCH_CN[x.code]||'投球'}${x.mph?` · ${Math.round(x.mph)} 英里/时（${mph2kmh(x.mph)} 公里）`:''}`;
     l2.textContent=arrived?(CALL_CN[x.call]||x.call||''):'';l2.setAttribute('fill',KCOL[x.k]==='#1f5fd1'?'#7aa5ff':KCOL[x.k]);
     const w=Math.max(40,[...l1.textContent].reduce((a,ch)=>a+(/[\u3000-\uffff]/.test(ch)?5.6:3.2),0)+8);q.pb.querySelector('rect').setAttribute('width',w.toFixed(1));}
@@ -1734,6 +1734,7 @@ function simDraw(){
   else if(lastOut||caughtNode){const k=lastOut?outSegs.indexOf(lastOut):0,pt=lastOut?lastOut.b:land;q.flash.style.display='';q.flash.setAttribute('x',pt[0]);q.flash.setAttribute('y',pt[1]-7);
     q.flash.textContent=caughtNode&&!lastOut?'接杀！':k===1?'双杀！':k===2?'三杀！':'出局！';}else q.flash.style.display='none';
   if(SIM.mode==='3d'){FR.ball=ball;FR.lift=lift;FR.wide=wide;FR.throwing=throwing||inFlight;
+    FR.pitch=!done&&t<T.P&&shown[j]?{k:t%PT,sw:/Swinging|Foul|In play|Tip|Bunt/.test(shown[j].call||'')}:null;
     FR.flash=q.flash.style.display==='none'?null:{t:q.flash.textContent,xy:[+q.flash.getAttribute('x'),+q.flash.getAttribute('y')+7]};
     const [l1,l2]=q.pb.querySelectorAll('text');FR.badge=q.pb.style.display==='none'?null:[l1.textContent,l2.textContent,l2.getAttribute('fill')];s3Draw(FR);}
   // 解说
@@ -1810,31 +1811,55 @@ function s3Human(o){
   const g=new THREE.Group(),SK=MAT(o.skin||'#e3b98f'),parts={body:[],trim:[],cap:[]};
   const cyl=(a,b,h)=>GEO('c'+a+b+h,()=>new THREE.CylinderGeometry(a,b,h,10));
   const mk=(gm,m,x,y,z,role)=>{const s=new THREE.Mesh(gm,m);s.position.set(x,y,z);if(role)parts[role].push(s);return s;};
-  const legs=[-1,1].map(sd=>{const L=new THREE.Group();L.position.set(sd*.3,2.05,0);
-    L.add(mk(cyl(.3,.26,1.25),SK,0,-.62,0,'body'),mk(cyl(.26,.22,.8),SK,0,-1.6,0,'trim'),mk(GEO('shoe',()=>new THREE.BoxGeometry(.36,.22,.66)),MAT('#141414'),0,-2,.12));g.add(L);return L;});
+  // 腿分大腿和小腿，膝盖能弯：跑步时屈膝，捕手和主审能真的蹲下
+  const legs=[-1,1].map(sd=>{const L=new THREE.Group();L.position.set(sd*.3,2.05,0);const K=new THREE.Group();K.position.y=-1.02;
+    K.add(mk(cyl(.26,.22,.86),SK,0,-.43,0,'trim'),mk(GEO('shoe',()=>new THREE.BoxGeometry(.36,.2,.66)),MAT('#141414'),0,-.93,.12));
+    L.add(mk(cyl(.3,.27,1.04),SK,0,-.52,0,'body'),K);L.userData.knee=K;g.add(L);return L;});
   const arms=[-1,1].map(sd=>{const A=new THREE.Group();A.position.set(sd*.8,3.62,0);
     A.add(mk(cyl(.21,.19,.7),SK,0,-.35,0,'body'),mk(cyl(.17,.15,.78),SK,0,-1.08,0));
-    if(o.glove&&sd<0)A.add(mk(GEO('glove',()=>new THREE.SphereGeometry(.36,8,6)),MAT('#7a4a22'),0,-1.55,.08));g.add(A);return A;});
+    if(o.glove&&sd>0)A.add(mk(GEO('glove',()=>new THREE.SphereGeometry(.36,8,6)),MAT('#7a4a22'),0,-1.55,.08));g.add(A);return A;});
   g.add(mk(cyl(.64,.5,1.7),SK,0,2.95,0,'body'),mk(cyl(.52,.52,.16),SK,0,2.1,0,'trim'),mk(GEO('head',()=>new THREE.SphereGeometry(.46,12,10)),SK,0,4.22,0));
   if(o.helmet){g.add(mk(GEO('helm',()=>new THREE.SphereGeometry(.55,12,8,0,Math.PI*2,0,Math.PI*.6)),SK,0,4.28,0,'cap'),mk(GEO('ear',()=>new THREE.BoxGeometry(.5,.06,.38)),SK,0,4.3,.5,'cap'));}
   else g.add(mk(GEO('cap',()=>new THREE.SphereGeometry(.5,12,6,0,Math.PI*2,0,Math.PI/2)),SK,0,4.36,0,'cap'),mk(GEO('brim',()=>new THREE.BoxGeometry(.62,.06,.5)),SK,0,4.38,.56,'cap'));
   let bat=null;if(o.bat){bat=mk(GEO('bat',()=>new THREE.CylinderGeometry(.07,.14,2.7,8)),MAT('#c79a5b'),.55,4.7,-.35);bat.rotation.set(-.5,0,-.45);g.add(bat);}
   const sh=mk(GEO('sh',()=>new THREE.CircleGeometry(1.1,16)),S3.shadowM,0,.05,0);sh.rotation.x=-Math.PI/2;g.add(sh);
-  g.scale.setScalar(1.15);if(o.crouch){g.scale.y=.78;}
-  g.userData={legs,arms,parts,phase:Math.random()*6,prev:null,kit:'',helmet:!!o.helmet,bat};
+  if(o.gear){g.add(mk(GEO('chest',()=>new THREE.BoxGeometry(1.15,1.4,.35)),MAT('#1d2433'),0,2.95,.55),mk(GEO('mask',()=>new THREE.BoxGeometry(.75,.6,.25)),MAT('#222'),0,4.15,.5));}
+  g.scale.setScalar(1.15);
+  g.userData={legs,arms,parts,phase:Math.random()*6,prev:null,kit:'',helmet:!!o.helmet,bat,crouch:!!o.crouch};
+  if(o.crouch)s3Crouch(g);
   return g;
 }
 function s3Kit(g,k){
   const key=k.body+k.trim+k.cap;if(g.userData.kit===key)return;g.userData.kit=key;const P=g.userData.parts;
   P.body.forEach(m=>m.material=MAT(k.body));P.trim.forEach(m=>m.material=MAT(k.trim));P.cap.forEach(m=>m.material=MAT(k.cap,g.userData.helmet));
 }
+// 蹲姿：大腿往前抬平、小腿往下，整个人放低，让脚贴地；手套伸向前方
+function s3Crouch(g){const u=g.userData;u.legs.forEach(L=>{L.rotation.x=-1.45;L.userData.knee.rotation.x=1.7;});u.arms[1].rotation.x=-1.25;u.arms[0].rotation.x=-.4;}
 // 位置 + 朝向 + 跑步摆臂摆腿
 function s3Pose(g,xy,face,dt){
   const u=g.userData,pos=W3(xy),prev=u.prev||pos;const v=dt>0?pos.distanceTo(prev)/dt*1000:0;u.prev=pos;g.position.copy(pos);
+  if(u.crouch){g.position.y=-1.05*1.15;if(face){const f=W3(face);g.rotation.y=Math.atan2(f.x-pos.x,f.z-pos.z);}return;}
   if(v>2){const d=pos.clone().sub(prev);g.rotation.y=Math.atan2(d.x,d.z);}
   else if(face){const f=W3(face);g.rotation.y=Math.atan2(f.x-pos.x,f.z-pos.z);}
   const run=Math.min(1,v/14);u.phase+=dt/1000*(3+v*.5);const sw=Math.sin(u.phase)*.95*run;
   u.legs[0].rotation.x=sw;u.legs[1].rotation.x=-sw;u.arms[0].rotation.x=-sw*.8;u.arms[1].rotation.x=sw*.8;
+  u.legs.forEach((L,i)=>{L.userData.knee.rotation.x=run*Math.max(0,(i?sw:-sw))*1.3+run*.25;});
+}
+const clamp01=x=>x<0?0:x>1?1:x;
+// 投手投球动作：抬腿 → 手臂往后拉 → 过头顶甩臂出手（REL 时刻）→ 收臂
+function s3Pitcher(m,k){
+  const u=m.userData,f=k/REL;
+  if(f<1){const a=clamp01(f/.75);u.legs[1].rotation.x=-1.25*Math.sin(Math.min(1,f/.6)*Math.PI/2)*(f<.8?1:1-(f-.8)/.2*1.4);u.legs[1].userData.knee.rotation.x=1.1*(f<.8?a:1-(f-.8)/.2);
+    u.arms[0].rotation.x=f<.75?2.4*a:2.4+(5.4-2.4)*clamp01((f-.75)/.25);u.arms[1].rotation.x=-1.2*a;}
+  else{const b=clamp01((k-REL)/300);u.arms[0].rotation.x=5.4+(2*Math.PI-5.4)*b;u.legs[1].rotation.x=-.5*(1-b);u.legs[1].userData.knee.rotation.x=0;u.arms[1].rotation.x=-1.2*(1-b);}
+}
+// 打者挥棒：蓄力转体，球到本垒时挥出并随挥；没出棒就保持站姿
+function s3Batter(m,p){
+  const u=m.userData,hit=REL+FLY,base=Math.PI/2;let yaw=0,flat=0;
+  if(p&&p.sw){if(p.k<hit-180)yaw=-.45*clamp01(p.k/(hit-180));else if(p.k<hit+120){const f=(p.k-(hit-180))/300;yaw=-.45+2.6*Math.sin(f*Math.PI/2);flat=1;}else{yaw=2.15;flat=1;}}
+  m.rotation.y=base+yaw;
+  if(u.bat){if(flat){u.bat.position.set(.2,3.5,.9);u.bat.rotation.set(Math.PI/2,0,0);}else{u.bat.position.set(.55,4.7,-.35);u.bat.rotation.set(-.5,0,-.45);}}
+  u.arms[0].rotation.x=u.arms[1].rotation.x=flat?-1.5:-.9;
 }
 const s3Tex={};
 function s3Text(txt,color,big){
@@ -1907,7 +1932,7 @@ function s3Setup(){
   scene.add(new THREE.HemisphereLight('#eef4ff','#2a4430',.85));const sun=new THREE.DirectionalLight('#fff',.55);sun.position.set(-60,120,40);scene.add(sun);
   const out=new THREE.Mesh(new THREE.PlaneGeometry(1200,1200),new THREE.MeshLambertMaterial({color:'#1b2a22'}));out.rotation.x=-Math.PI/2;out.position.y=-.08;scene.add(out);
   S3.shadowM=new THREE.MeshBasicMaterial({color:'#000',transparent:true,opacity:.28,depthWrite:false});
-  const fd=Array.from({length:9},(_,i)=>s3Human({glove:true,crouch:i===1})); // 顺序：P、C、1B、2B、SS、3B、LF、CF、RF
+  const fd=Array.from({length:9},(_,i)=>s3Human({glove:true,crouch:i===1,gear:i===1})); // 顺序：P、C、1B、2B、SS、3B、LF、CF、RF
   const rn=Array.from({length:4},()=>s3Human({helmet:true})),batter=s3Human({helmet:true,bat:true});
   const coach=COACH_XY.map(()=>s3Human({})),ump=UMP_XY.map((_,i)=>s3Human({crouch:i===0}));
   ump.forEach(u=>s3Kit(u,{body:'#2a2d33',trim:'#111',cap:'#111'}));
@@ -1937,10 +1962,10 @@ function s3Draw(FR){
   if(S3.parkKey!==pk){if(S3.park)S3.scene.remove(S3.park.grp);S3.park=s3Park(FR.hab,aab);S3.scene.add(S3.park.grp);S3.parkKey=pk;}
   const dKit=kitOf(FR.dab,FR.dab===FR.hab),oKit=kitOf(FR.oab,FR.oab===FR.hab);
   let li=0;const lab=(pos,txt,color,y)=>{const sp=S3.labs[li++];if(!sp)return;sp.position.copy(W3(pos,y||7.6));s3Label(sp,txt,color,.032);};
-  FR.f.forEach((f,i)=>{const m=S3.fd[i];if(!m)return;s3Kit(m,dKit);s3Pose(m,f.xy,HP,dt);m.visible=true;lab(f.xy,f.n?`${f.no} ${f.n}`:String(f.no),f.hot?'#ffd166':'#ffffff',i===1?6:7.6);});
+  FR.f.forEach((f,i)=>{const m=S3.fd[i];if(!m)return;s3Kit(m,dKit);s3Pose(m,f.xy,HP,dt);if(i===0&&FR.pitch)s3Pitcher(m,FR.pitch.k);m.visible=true;lab(f.xy,f.n?`${f.no} ${f.n}`:String(f.no),f.hot?'#ffd166':'#ffffff',i===1?6:7.6);});
   // 打者拿球棒站在打击区；其余是跑者
   const bt=FR.r.find(d=>d.bat),runs=FR.r.filter(d=>d!==bt);
-  S3.batter.visible=!!bt;if(bt){s3Kit(S3.batter,oKit);s3Pose(S3.batter,[HP[0]-3.6,HP[1]],[HP[0]+6,HP[1]],dt);S3.batter.rotation.y=Math.PI/2;lab([HP[0]-3.6,HP[1]],bt.n,'#ffd166');}
+  S3.batter.visible=!!bt;if(bt){s3Kit(S3.batter,oKit);s3Pose(S3.batter,[HP[0]-3.6,HP[1]],[HP[0]+6,HP[1]],dt);s3Batter(S3.batter,FR.pitch);lab([HP[0]-3.6,HP[1]],bt.n,'#ffd166');}
   S3.rn.forEach((m,i)=>{const d=runs[i];if(!d){m.visible=false;return;}m.visible=true;s3Kit(m,d.out?{body:'#d22d49',trim:oKit.trim,cap:oKit.cap}:oKit);s3Pose(m,d.xy,MOUND,dt);
     m.traverse(o=>{if(o.material&&o.material!==S3.shadowM)o.visible=!d.fade;});lab(d.xy,d.n,'#ffd166');});
   for(;li<S3.labs.length;li++)S3.labs[li].visible=false;
@@ -1958,7 +1983,7 @@ function s3Draw(FR){
   // 镜头（像电视转播）：投球时切到中外野机位，从投手背后长焦看本垒；球打出去切回本垒后上方的高机位，球去外野就拉高跟球；「全场」时高空俯视
   const far=FR.wide&&B,mode=!SIM.camAuto?'all':FR.badge?'cf':far?'far':'home';
   const eye=new THREE.Vector3(),look=new THREE.Vector3();let fov=42;
-  if(mode==='cf'){eye.set(-11,17,-98);look.set(-1,3.2,2);fov=15;}
+  if(mode==='cf'){eye.set(-11,24,-98);look.set(-1,2.6,2);fov=15;}
   else if(mode==='far'){eye.set((B[0]-HP[0])*.25,92,72);look.copy(W3(B,0).multiplyScalar(.6)).add(new THREE.Vector3(0,0,-30));}
   else if(mode==='all'){eye.set(0,110,75);look.set(0,0,-80);}
   else{eye.set(0,40,58);look.set(0,0,-50);}
