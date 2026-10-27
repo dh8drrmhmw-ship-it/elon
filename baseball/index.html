@@ -1480,7 +1480,7 @@ function liveHTML(g){
 /* ---------- 比赛画面：仿足球经理的 2D 俯视演出（进行中实时演出，已结束可回放） ---------- */
 // 坐标沿用 MLB Gameday 的 250×250 球场图：本垒约在 (125.4,198.3)，1 个单位约 2.5 英尺
 const HP=[125.4,198.3],MOUND=[125.4,174.1],BASE_XY=[HP,[150.9,172.8],[125.4,147.4],[99.9,172.8],HP];
-const FIELD_POS={C:[125.4,208],'1B':[150,162],'2B':[140,147],SS:[111,147],'3B':[101,162],LF:[82,100],CF:[125.4,80],RF:[169,100]};
+const FIELD_POS={C:[125.4,208],'1B':[160,160],'2B':[141,139],SS:[109,139],'3B':[91,160],LF:[82,100],CF:[125.4,80],RF:[169,100]};
 const BASE_IX={'1B':1,'2B':2,'3B':3,'4B':4,score:4};
 async function loadPlays(pk){
   const d=await api(`/v1.1/game/${pk}/feed/live?fields=liveData,plays,allPlays,result,description,eventType,awayScore,homeScore,about,inning,halfInning,isComplete,atBatIndex,count,outs,matchup,batter,pitcher,id,fullName,runners,movement,start,end,isOut,outBase,details,runner,isScoringEvent,playEvents,isPitch,pitchData,startSpeed,type,code,call,description,isInPlay,isStrike,hitData,coordinates,coordX,coordY,trajectory`,15000);
