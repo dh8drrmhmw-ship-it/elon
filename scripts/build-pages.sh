@@ -12,5 +12,5 @@ mkdir -p "$out/baseball"
   cat baseball/index.html
   printf '%s\n' '</body></html>'
 } > "$out/baseball/index.html"
-cp -r baseball/icons baseball/manifest.webmanifest "$out/baseball/"
+cp -r baseball/icons baseball/manifest.webmanifest baseball/sw.js "$out/baseball/"
 printf '%s\n' '<!doctype html><meta charset="utf-8"><title>本垒棒球</title><meta http-equiv="refresh" content="0; url=baseball/"><a href="baseball/">打开本垒棒球</a>' > "$out/index.html"
