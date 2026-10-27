@@ -2,7 +2,9 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@700;900&display=swap">
+<!-- Google 字体在国内偶尔连不上：用脚本插入，不挡页面显示；连不上时用系统字体 -->
+<script>(function(){var l=document.createElement('link');l.rel='stylesheet';l.href='https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@700;900&display=swap';document.head.appendChild(l);})();</script>
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@700;900&display=swap"></noscript>
 <style>
 /* Layout: phone-width app column — deep navy masthead with channel tabs, cool-white card feed, fixed bottom tab bar, full-screen sheets for game / team / article detail */
 :root{
@@ -1209,7 +1211,7 @@ function viewMe(){
      <div class="menu-row"><span>AI 中文战报</span><small>${aiMode()==='sample'?'使用你的 Claude 账号':aiMode()==='key'?'使用你的 API Key':AI.sample===undefined?'检测中…':'未启用'}</small></div>
      ${aiMode()!=='sample'?(apiKey?`<div class="menu-row"><span style="font-size:13px;color:var(--muted)">API Key 已保存在这台设备</span><button class="ai-btn" data-act="key-clear">清除</button></div>`:
        `<form class="name-form" data-keyform="1" style="border-top:1px solid var(--line);padding-top:12px"><input id="key-in" type="password" placeholder="填入 Anthropic API Key（sk-ant-…）" autocomplete="off"><button type="submit">保存</button></form>
-        <div class="note" style="padding-top:0">在 Claude 里打开本页不需要填。Key 只保存在这台设备的浏览器里，不会上传到别处；不要在公用设备上填写。</div>`):''}
+        <div class="note" style="padding-top:0">在 Claude 里打开本页不需要填。Key 只保存在这台设备的浏览器里，不会上传到别处；不要在公用设备上填写。</div>`)+(IN_CN?`<div class="note" style="padding-top:0">${CN_NOTE}</div>`:''):''}
      <div class="menu-row"><span>球员中文译名</span><small>译名库 ${Object.keys(NAMES).length} 人 · 自定义 ${Object.keys(customNames).length} 人</small></div>
      <div class="menu-row"><span>数据来源</span><small>${Live.state==='ok'?'MLB 官方 statsapi · 实时':'未连接 · 显示示例数据'}</small></div>
      <div class="menu-row"><span>关于本垒</span><small>v0.4</small></div></section></div>`;
@@ -2475,11 +2477,15 @@ const AI={sample:undefined};
 (window.claude&&typeof window.claude.use==='function'?window.claude.use('sample').catch(()=>null):Promise.resolve(null))
   .then(sm=>{AI.sample=sm;if(S.tab==='me')render();refreshSheet();});
 let apiKey=store.get('apikey','');
+// Anthropic 不向中国大陆提供服务，按设备时区粗略判断是否在大陆
+const IN_CN=(()=>{try{return /^Asia\/(Shanghai|Chongqing|Chungking|Harbin|Urumqi|Kashgar)$/.test(Intl.DateTimeFormat().resolvedOptions().timeZone);}catch(_){return false;}})();
+const CN_NOTE='Anthropic 不向中国大陆提供服务，在国内网络下用不了 AI 战报和 AI 翻译；比分、文字直播等其他功能不受影响。';
 const aiMode=()=>AI.sample?'sample':apiKey?'key':'none';
 const AIS={}; // per game: {recap:{status,text,err}, tr:{status,map,err}}
 const aiState=id=>AIS[id]=AIS[id]||{recap:{status:'idle',text:''},tr:{status:'idle',map:{}}};
 const AI_ERR={not_granted:'你没有允许本页使用 Claude，刷新页面后可以重新选择。',rate_limited:'请求太频繁，请稍后再试。',bad_key:'API Key 无效，请到「我的」里重新填写。',
-  refusal:'Claude 没有完成这次请求，请稍后重试。',no_ai:'AI 功能未启用。',cancelled:'已停止。'};
+  refusal:'Claude 没有完成这次请求，请稍后重试。',no_ai:'AI 功能未启用。',cancelled:'已停止。',
+  region:IN_CN?CN_NOTE:'Anthropic 不向你所在的地区提供服务，AI 战报和 AI 翻译用不了；其他功能不受影响。',network:'连不上 Anthropic 的服务器，请检查网络后再试。'};
 const aiErr=e=>AI_ERR[e&&e.code]||(e&&e.message?`生成失败：${e.message}`:'生成失败，请稍后再试。');
 
 async function askClaude(prompt,onText){
@@ -2488,14 +2494,18 @@ async function askClaude(prompt,onText){
     catch(e){throw {code:e.code,message:e.message};}
   }
   if(!apiKey)throw {code:'no_ai'};
-  const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
+  let res;
+  try{res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',
     headers:{'content-type':'application/json','x-api-key':apiKey,'anthropic-version':'2026-10-21',
       'anthropic-beta':'server-side-fallback-2026-07-01','anthropic-dangerous-direct-browser-access':'true'},
     body:JSON.stringify({model:'claude-opus-5-5',max_tokens:8000,stream:true,fallbacks:'default',
-      output_config:{effort:'medium'},messages:[{role:'user',content:prompt}]})});
+      output_config:{effort:'medium'},messages:[{role:'user',content:prompt}]})});}
+  catch(e){throw {code:IN_CN?'region':'network'};}
   if(!res.ok){
-    let m='';try{m=(await res.json()).error.message;}catch(_){}
-    throw {code:res.status===401||res.status===403?'bad_key':res.status===429?'rate_limited':'error',message:m};
+    let m='',t='';try{const j=(await res.json()).error;m=j.message||'';t=j.type||'';}catch(_){}
+    // 地区限制返回 403；Key 无效返回 401
+    const region=res.status===403&&(t==='forbidden'||/not allowed|region|countr|territor/i.test(m)||IN_CN);
+    throw {code:region?'region':res.status===401||res.status===403?'bad_key':res.status===429?'rate_limited':'error',message:m};
   }
   const rd=res.body.getReader(),dec=new TextDecoder();let buf='',text='',stop=null;
   for(;;){
@@ -2530,7 +2540,7 @@ function gameBrief(g){
 }
 function aiPanel(g){
   const st=aiState(g.id).recap,mode=aiMode(),live=g.status==='live';
-  if(mode==='none')return `<section class="panel"><div class="sec-h">AI 中文战报</div><div class="ai-meta">在 Claude 里打开本页即可使用；在其他网页打开时，到「我的」里填入你自己的 Anthropic API Key。</div></section>`;
+  if(mode==='none')return `<section class="panel"><div class="sec-h">AI 中文战报</div><div class="ai-meta">${IN_CN?CN_NOTE:'在 Claude 里打开本页即可使用；在其他网页打开时，到「我的」里填入你自己的 Anthropic API Key。'}</div></section>`;
   const busy=st.status==='run',label=busy?'生成中…':st.text?(live?'更新速报':'重新生成'):(live?'生成局势速报':'生成战报');
   let body='';
   if(st.text){const [t,...rest]=st.text.split('\n');body=`<p class="ai-out" id="ai-out-${g.id}"><span class="ai-title">${esc(t)}</span>${esc(rest.join('\n').trim())}</p>`;}
