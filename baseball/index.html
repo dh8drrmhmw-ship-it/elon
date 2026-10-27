@@ -1805,40 +1805,82 @@ const COACH_XY=[[162,180],[88.8,180]],UMP_XY=[[125.4,214],[156,185],[94.8,185]];
 const s3M={},s3G={};
 const MAT=(c,shiny)=>s3M[c+(shiny?'s':'')]||(s3M[c+(shiny?'s':'')]=shiny?new THREE.MeshPhongMaterial({color:c,shininess:90}):new THREE.MeshLambertMaterial({color:c}));
 const GEO=(k,f)=>s3G[k]||(s3G[k]=f());
-const kitOf=(ab,home)=>({body:home?'#f2f1ec':'#9fa4aa',trim:team(ab).c,cap:team(ab).c});
-// 低多边形小人：帽子/头盔、躯干、腰带、手臂、腿、球鞋；可选手套、球棒；蹲姿给捕手
+// 各队队服：主色 + 副色（主色和 MLB_RAW 里的一致，副色是球队的第二配色）
+const KIT2={ARI:'#E3D4AD',ATL:'#CE1141',BAL:'#27251F',BOS:'#0C2340',CHC:'#CC3433',CWS:'#C4CED4',CIN:'#27251F',CLE:'#E50022',COL:'#C4CED4',DET:'#FA4616',
+  HOU:'#EB6E1F',KC:'#BD9B60',LAA:'#003263',LAD:'#EF3E42',MIA:'#EF3340',MIL:'#FFC52F',MIN:'#D31145',NYM:'#FF5910',NYY:'#C4CED4',ATH:'#EFB21E',
+  PHI:'#002D72',PIT:'#FDB827',SD:'#FFC425',SF:'#27251F',SEA:'#005C5C',STL:'#0C2340',TB:'#8FBCE6',TEX:'#C0111F',TOR:'#E8291C',WSH:'#14225A'};
+const PINSTRIPE=new Set(['NYY','PHI','CHC']);
+const luma=h=>{const n=parseInt(h.slice(1),16);return ((n>>16)*.299+((n>>8)&255)*.587+(n&255)*.114)/255;};
+// 主队：白色球衣 + 球队主色字样和袖口（洋基、费城人、小熊带细条纹）；客队：球队主色的彩色球衣 + 副色点缀
+function kitOf(ab,home){
+  const c1=team(ab).c,c2=KIT2[ab]||'#ffffff';
+  return home?{key:ab+'H',jersey:'#f3f2ec',trim:c1,text:c1,pants:'#f3f2ec',cap:c1,socks:c1,pin:PINSTRIPE.has(ab)?c1:null,ab}
+    :{key:ab+'A',jersey:c1,trim:c2,text:luma(c2)>.45?c2:'#ffffff',pants:'#cfd2d6',cap:luma(c1)>.6?c2:c1,socks:c2,ab};
+}
+const KIT_UMP={key:'UMP',jersey:'#1f2530',trim:'#0f1115',text:'#1f2530',pants:'#545a66',cap:'#0f1115',socks:'#0f1115',ab:''};
+// 方块人（《我的世界》风格）：1 个“像素”= PX 个单位；头 8，身体 8×12×4，手脚 4×12×4，贴图用像素画
+const PX=.17;
+function pxTex(w,h,draw){const cv=document.createElement('canvas');cv.width=w;cv.height=h;const c=cv.getContext('2d');draw(c,w,h);
+  const t=new THREE.CanvasTexture(cv);t.magFilter=THREE.NearestFilter;t.minFilter=THREE.NearestFilter;return t;}
+const LMAT=t=>new THREE.MeshLambertMaterial({map:t});
+const s3K={};
+function kitMats(k,no){
+  const key=k.key+'|'+(no||'');if(s3K[key])return s3K[key];
+  const cloth=(c,w,h)=>{c.fillStyle=k.jersey;c.fillRect(0,0,w,h);if(k.pin){c.fillStyle=k.pin;for(let x=1;x<w;x+=3)c.fillRect(x,0,1,h);}};
+  const front=pxTex(16,24,(c,w,h)=>{cloth(c,w,h);c.fillStyle=k.trim;c.fillRect(0,0,w,1);c.fillRect(7,1,2,2); // 领口
+    c.fillStyle=k.text;c.font='bold 6px monospace';c.textAlign='center';c.textBaseline='middle';c.fillText(k.ab,w/2,9);
+    c.fillStyle='#1b1b1b';c.fillRect(0,h-2,w,2);});
+  const back=pxTex(16,24,(c,w,h)=>{cloth(c,w,h);c.fillStyle=k.trim;c.fillRect(0,0,w,1);
+    if(no&&/^\d+$/.test(no)){c.fillStyle=k.text;c.font='bold 9px monospace';c.textAlign='center';c.textBaseline='middle';c.fillText(no,w/2,11);}
+    c.fillStyle='#1b1b1b';c.fillRect(0,h-2,w,2);});
+  const side=pxTex(8,24,(c,w,h)=>{cloth(c,w,h);c.fillStyle=k.trim;c.fillRect(3,0,2,h-2);c.fillStyle='#1b1b1b';c.fillRect(0,h-2,w,2);});
+  const top=pxTex(8,8,(c,w,h)=>{cloth(c,w,h);});
+  const arm=pxTex(8,24,(c,w,h)=>{cloth(c,w,h);c.fillStyle=k.trim;c.fillRect(0,7,w,2);c.fillStyle='#d9a77c';c.fillRect(0,9,w,h-9);});
+  const thigh=pxTex(8,12,(c,w,h)=>{c.fillStyle=k.pants;c.fillRect(0,0,w,h);if(k.pin){c.fillStyle=k.pin;for(let x=1;x<w;x+=3)c.fillRect(x,0,1,h);}c.fillStyle=k.trim;c.fillRect(3,0,2,h);});
+  const shin=pxTex(8,12,(c,w,h)=>{c.fillStyle=k.pants;c.fillRect(0,0,w,3);c.fillStyle=k.socks;c.fillRect(0,3,w,6);c.fillStyle='#161616';c.fillRect(0,9,w,3);});
+  const cap=pxTex(8,8,(c,w,h)=>{c.fillStyle=k.cap;c.fillRect(0,0,w,h);if(k.ab){c.fillStyle=k.cap===k.trim||luma(k.cap)<.5?'#ffffff':k.trim;c.font='bold 6px monospace';c.textAlign='center';c.textBaseline='middle';c.fillText(k.ab[0],w/2,h/2+1);}});
+  const J=LMAT(front),B=LMAT(back),S=LMAT(side),T=LMAT(top),CP=MAT(k.cap);
+  return s3K[key]={torso:[S,S,T,T,J,B],arm:LMAT(arm),thigh:LMAT(thigh),shin:LMAT(shin),cap:[CP,CP,CP,CP,LMAT(cap),CP],plain:CP,helm:MAT(k.cap,true)};
+}
+let s3Face=null;
+function faceMats(){
+  if(s3Face)return s3Face;
+  const skin='#d9a77c',f=pxTex(8,8,(c)=>{c.fillStyle=skin;c.fillRect(0,0,8,8);c.fillStyle='#3b2416';c.fillRect(0,0,8,2);
+    c.fillStyle='#fff';c.fillRect(1,4,2,1);c.fillRect(5,4,2,1);c.fillStyle='#2b4a8a';c.fillRect(2,4,1,1);c.fillRect(5,4,1,1);c.fillStyle='#8a4b33';c.fillRect(3,6,2,1);});
+  const sk=MAT(skin),hair=MAT('#3b2416');return s3Face=[sk,sk,hair,sk,LMAT(f),sk];
+}
 function s3Human(o){
-  const g=new THREE.Group(),SK=MAT(o.skin||'#e3b98f'),parts={body:[],trim:[],cap:[]};
-  const cyl=(a,b,h)=>GEO('c'+a+b+h,()=>new THREE.CylinderGeometry(a,b,h,10));
-  const mk=(gm,m,x,y,z,role)=>{const s=new THREE.Mesh(gm,m);s.position.set(x,y,z);if(role)parts[role].push(s);return s;};
-  // 腿分大腿和小腿，膝盖能弯：跑步时屈膝，捕手和主审能真的蹲下
-  const legs=[-1,1].map(sd=>{const L=new THREE.Group();L.position.set(sd*.3,2.05,0);const K=new THREE.Group();K.position.y=-1.02;
-    K.add(mk(cyl(.26,.22,.86),SK,0,-.43,0,'trim'),mk(GEO('shoe',()=>new THREE.BoxGeometry(.36,.2,.66)),MAT('#141414'),0,-.93,.12));
-    L.add(mk(cyl(.3,.27,1.04),SK,0,-.52,0,'body'),K);L.userData.knee=K;g.add(L);return L;});
-  const arms=[-1,1].map(sd=>{const A=new THREE.Group();A.position.set(sd*.8,3.62,0);
-    A.add(mk(cyl(.21,.19,.7),SK,0,-.35,0,'body'),mk(cyl(.17,.15,.78),SK,0,-1.08,0));
-    if(o.glove&&sd>0)A.add(mk(GEO('glove',()=>new THREE.SphereGeometry(.36,8,6)),MAT('#7a4a22'),0,-1.55,.08));g.add(A);return A;});
-  g.add(mk(cyl(.64,.5,1.7),SK,0,2.95,0,'body'),mk(cyl(.52,.52,.16),SK,0,2.1,0,'trim'),mk(GEO('head',()=>new THREE.SphereGeometry(.46,12,10)),SK,0,4.22,0));
-  if(o.helmet){g.add(mk(GEO('helm',()=>new THREE.SphereGeometry(.55,12,8,0,Math.PI*2,0,Math.PI*.6)),SK,0,4.28,0,'cap'),mk(GEO('ear',()=>new THREE.BoxGeometry(.5,.06,.38)),SK,0,4.3,.5,'cap'));}
-  else g.add(mk(GEO('cap',()=>new THREE.SphereGeometry(.5,12,6,0,Math.PI*2,0,Math.PI/2)),SK,0,4.36,0,'cap'),mk(GEO('brim',()=>new THREE.BoxGeometry(.62,.06,.5)),SK,0,4.38,.56,'cap'));
-  let bat=null;if(o.bat){bat=mk(GEO('bat',()=>new THREE.CylinderGeometry(.07,.14,2.7,8)),MAT('#c79a5b'),.55,4.7,-.35);bat.rotation.set(-.5,0,-.45);g.add(bat);}
-  const sh=mk(GEO('sh',()=>new THREE.CircleGeometry(1.1,16)),S3.shadowM,0,.05,0);sh.rotation.x=-Math.PI/2;g.add(sh);
-  if(o.gear){g.add(mk(GEO('chest',()=>new THREE.BoxGeometry(1.15,1.4,.35)),MAT('#1d2433'),0,2.95,.55),mk(GEO('mask',()=>new THREE.BoxGeometry(.75,.6,.25)),MAT('#222'),0,4.15,.5));}
-  g.scale.setScalar(1.15);
+  const g=new THREE.Group(),P=v=>v*PX,box=(w,h,d)=>GEO(`b${w}_${h}_${d}`,()=>new THREE.BoxGeometry(P(w),P(h),P(d)));
+  const mk=(gm,m,x,y,z)=>{const s=new THREE.Mesh(gm,m);s.position.set(x,y,z);return s;};
+  const parts={arms:[],thighs:[],shins:[]};
+  // 腿：大腿 + 小腿（膝盖能弯：跑步、蹲下）
+  const legs=[-1,1].map(sd=>{const L=new THREE.Group();L.position.set(sd*P(2),P(12),0);const K=new THREE.Group();K.position.y=-P(6);
+    const sh=mk(box(4,6,4),null,0,-P(3),0);parts.shins.push(sh);K.add(sh);const th=mk(box(4,6,4),null,0,-P(3),0);parts.thighs.push(th);
+    L.add(th,K);L.userData.knee=K;g.add(L);return L;});
+  const torso=mk(box(8,12,4),null,0,P(18),0);parts.torso=torso;g.add(torso);
+  const arms=[-1,1].map(sd=>{const A=new THREE.Group();A.position.set(sd*P(6),P(23),0);const a=mk(box(4,12,4),null,0,-P(5),0);parts.arms.push(a);A.add(a);
+    if(o.glove&&sd>0)A.add(mk(box(5,4,5),MAT('#7a4a22'),0,-P(11.5),P(.5)));g.add(A);return A;});
+  g.add(mk(box(8,8,8),faceMats(),0,P(28),0));
+  if(o.helmet){const hm=mk(box(9,5,9),null,0,P(31.5),0);parts.helm=[hm];g.add(hm);}
+  else{const cp=mk(box(8.6,3,8.6),null,0,P(32.6),0),br=mk(box(8,1,4),null,0,P(31.4),P(5.5));parts.cap=cp;parts.brim=br;g.add(cp,br);}
+  if(o.gear)g.add(mk(box(9,10,2),MAT('#1d2433'),0,P(18.5),P(3)),mk(box(7,6,1.5),MAT('#222'),0,P(28),P(4.6)));
+  let bat=null;if(o.bat){bat=mk(GEO('bat',()=>new THREE.BoxGeometry(P(1.6),P(18),P(1.6))),MAT('#c79a5b'),P(4),P(30),-P(2));bat.rotation.set(-.5,0,-.45);g.add(bat);}
+  const sh=mk(GEO('sh',()=>new THREE.CircleGeometry(1.15,16)),S3.shadowM,0,.05,0);sh.rotation.x=-Math.PI/2;g.add(sh);
   g.userData={legs,arms,parts,phase:Math.random()*6,prev:null,kit:'',helmet:!!o.helmet,bat,crouch:!!o.crouch};
   if(o.crouch)s3Crouch(g);
   return g;
 }
-function s3Kit(g,k){
-  const key=k.body+k.trim+k.cap;if(g.userData.kit===key)return;g.userData.kit=key;const P=g.userData.parts;
-  P.body.forEach(m=>m.material=MAT(k.body));P.trim.forEach(m=>m.material=MAT(k.trim));P.cap.forEach(m=>m.material=MAT(k.cap,g.userData.helmet));
+function s3Kit(g,k,no){
+  const key=k.key+'|'+(no||'');if(g.userData.kit===key)return;g.userData.kit=key;const P=g.userData.parts,M=kitMats(k,no);
+  P.torso.material=M.torso;P.arms.forEach(m=>m.material=M.arm);P.thighs.forEach(m=>m.material=M.thigh);P.shins.forEach(m=>m.material=M.shin);
+  if(P.helm)P.helm.forEach(m=>m.material=M.helm);if(P.cap){P.cap.material=M.cap;P.brim.material=M.plain;}
 }
 // 蹲姿：大腿往前抬平、小腿往下，整个人放低，让脚贴地；手套伸向前方
 function s3Crouch(g){const u=g.userData;u.legs.forEach(L=>{L.rotation.x=-1.45;L.userData.knee.rotation.x=1.7;});u.arms[1].rotation.x=-1.25;u.arms[0].rotation.x=-.4;}
 // 位置 + 朝向 + 跑步摆臂摆腿
 function s3Pose(g,xy,face,dt){
   const u=g.userData,pos=W3(xy),prev=u.prev||pos;const v=dt>0?pos.distanceTo(prev)/dt*1000:0;u.prev=pos;g.position.copy(pos);
-  if(u.crouch){g.position.y=-1.05*1.15;if(face){const f=W3(face);g.rotation.y=Math.atan2(f.x-pos.x,f.z-pos.z);}return;}
+  if(u.crouch){g.position.y=-PX*5.6;if(face){const f=W3(face);g.rotation.y=Math.atan2(f.x-pos.x,f.z-pos.z);}return;}
   if(v>2){const d=pos.clone().sub(prev);g.rotation.y=Math.atan2(d.x,d.z);}
   else if(face){const f=W3(face);g.rotation.y=Math.atan2(f.x-pos.x,f.z-pos.z);}
   const run=Math.min(1,v/14);u.phase+=dt/1000*(3+v*.5);const sw=Math.sin(u.phase)*.95*run;
@@ -1858,7 +1900,7 @@ function s3Batter(m,p){
   const u=m.userData,hit=REL+FLY,base=Math.PI/2;let yaw=0,flat=0;
   if(p&&p.sw){if(p.k<hit-180)yaw=-.45*clamp01(p.k/(hit-180));else if(p.k<hit+120){const f=(p.k-(hit-180))/300;yaw=-.45+2.6*Math.sin(f*Math.PI/2);flat=1;}else{yaw=2.15;flat=1;}}
   m.rotation.y=base+yaw;
-  if(u.bat){if(flat){u.bat.position.set(.2,3.5,.9);u.bat.rotation.set(Math.PI/2,0,0);}else{u.bat.position.set(.55,4.7,-.35);u.bat.rotation.set(-.5,0,-.45);}}
+  if(u.bat){if(flat){u.bat.position.set(PX*1,PX*21,PX*7);u.bat.rotation.set(Math.PI/2,0,0);}else{u.bat.position.set(PX*4,PX*30,-PX*2);u.bat.rotation.set(-.5,0,-.45);}}
   u.arms[0].rotation.x=u.arms[1].rotation.x=flat?-1.5:-.9;
 }
 const s3Tex={};
@@ -1902,7 +1944,7 @@ function s3Park(hab,aab){
   const fans=seats.filter(()=>Math.random()<.86),HC=new THREE.Color(team(hab).c),AC=new THREE.Color(team(aab).c),WH=new THREE.Color('#eeeeee');
   const MISC=['#c0392b','#2c3e50','#7f8c8d','#16a085','#d35400','#34495e','#8e44ad','#f1c40f'].map(c=>new THREE.Color(c));
   const bodyI=new THREE.InstancedMesh(GEO('fan',()=>new THREE.BoxGeometry(1.1,1.5,.8)),new THREE.MeshLambertMaterial(),fans.length);
-  const headI=new THREE.InstancedMesh(GEO('fanh',()=>new THREE.SphereGeometry(.42,6,5)),MAT('#d9ad86'),fans.length);
+  const headI=new THREE.InstancedMesh(GEO('fanh',()=>new THREE.BoxGeometry(.8,.8,.8)),MAT('#d9ad86'),fans.length);
   const M4=new THREE.Matrix4(),Q=new THREE.Quaternion(),E=new THREE.Euler(),ONE=new THREE.Vector3(1,1,1);
   fans.forEach(([b,r,h],i)=>{const v=W3(polar(b+(Math.random()-.5)*.004,r),h+.75);E.set(0,Math.atan2(-v.x,-v.z),0);Q.setFromEuler(E);
     M4.compose(v,Q,ONE);bodyI.setMatrixAt(i,M4);M4.compose(v.clone().setY(h+1.95),Q,ONE);headI.setMatrixAt(i,M4);
@@ -1935,7 +1977,7 @@ function s3Setup(){
   const fd=Array.from({length:9},(_,i)=>s3Human({glove:true,crouch:i===1,gear:i===1})); // 顺序：P、C、1B、2B、SS、3B、LF、CF、RF
   const rn=Array.from({length:4},()=>s3Human({helmet:true})),batter=s3Human({helmet:true,bat:true});
   const coach=COACH_XY.map(()=>s3Human({})),ump=UMP_XY.map((_,i)=>s3Human({crouch:i===0}));
-  ump.forEach(u=>s3Kit(u,{body:'#2a2d33',trim:'#111',cap:'#111'}));
+  ump.forEach(u=>s3Kit(u,KIT_UMP));
   const bull=[s3Human({glove:true}),s3Human({glove:true,crouch:true}),s3Human({glove:true}),s3Human({glove:true,crouch:true})];
   const dug=Array.from({length:6},()=>s3Human({}));
   [...fd,...rn,batter,...coach,...ump,...bull,...dug].forEach(m=>scene.add(m));
@@ -1962,11 +2004,11 @@ function s3Draw(FR){
   if(S3.parkKey!==pk){if(S3.park)S3.scene.remove(S3.park.grp);S3.park=s3Park(FR.hab,aab);S3.scene.add(S3.park.grp);S3.parkKey=pk;}
   const dKit=kitOf(FR.dab,FR.dab===FR.hab),oKit=kitOf(FR.oab,FR.oab===FR.hab);
   let li=0;const lab=(pos,txt,color,y)=>{const sp=S3.labs[li++];if(!sp)return;sp.position.copy(W3(pos,y||7.6));s3Label(sp,txt,color,.032);};
-  FR.f.forEach((f,i)=>{const m=S3.fd[i];if(!m)return;s3Kit(m,dKit);s3Pose(m,f.xy,HP,dt);if(i===0&&FR.pitch)s3Pitcher(m,FR.pitch.k);m.visible=true;lab(f.xy,f.n?`${f.no} ${f.n}`:String(f.no),f.hot?'#ffd166':'#ffffff',i===1?6:7.6);});
+  FR.f.forEach((f,i)=>{const m=S3.fd[i];if(!m)return;s3Kit(m,dKit,f.no);s3Pose(m,f.xy,HP,dt);if(i===0&&FR.pitch)s3Pitcher(m,FR.pitch.k);m.visible=true;lab(f.xy,f.n?`${f.no} ${f.n}`:String(f.no),f.hot?'#ffd166':'#ffffff',i===1?6:7.6);});
   // 打者拿球棒站在打击区；其余是跑者
   const bt=FR.r.find(d=>d.bat),runs=FR.r.filter(d=>d!==bt);
   S3.batter.visible=!!bt;if(bt){s3Kit(S3.batter,oKit);s3Pose(S3.batter,[HP[0]-3.6,HP[1]],[HP[0]+6,HP[1]],dt);s3Batter(S3.batter,FR.pitch);lab([HP[0]-3.6,HP[1]],bt.n,'#ffd166');}
-  S3.rn.forEach((m,i)=>{const d=runs[i];if(!d){m.visible=false;return;}m.visible=true;s3Kit(m,d.out?{body:'#d22d49',trim:oKit.trim,cap:oKit.cap}:oKit);s3Pose(m,d.xy,MOUND,dt);
+  S3.rn.forEach((m,i)=>{const d=runs[i];if(!d){m.visible=false;return;}m.visible=true;s3Kit(m,d.out?Object.assign({},oKit,{key:oKit.key+'X',jersey:'#d22d49',pin:null}):oKit);s3Pose(m,d.xy,MOUND,dt);
     m.traverse(o=>{if(o.material&&o.material!==S3.shadowM)o.visible=!d.fade;});lab(d.xy,d.n,'#ffd166');});
   for(;li<S3.labs.length;li++)S3.labs[li].visible=false;
   if(FR.badge&&SIM.camAuto)S3.labs.forEach(l=>l.visible=false); // 中外野机位不显示名牌，免得叠在一起
