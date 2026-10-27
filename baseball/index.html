@@ -320,7 +320,7 @@ td.tm button,td.tm span.t{display:inline-flex;align-items:center;gap:8px}
 .sim-tx{margin:0;font-size:15px;line-height:1.6}.sim-tx.run{color:#ffd166;font-weight:700}
 .sim-ctl{display:flex;align-items:center;gap:8px;padding:8px 12px}
 .sim-ctl button{padding:0 10px;height:32px;font-size:13px!important;border-radius:8px;background:rgba(255,255,255,.1);color:#fff;font-size:15px}
-.sim-ctl .sim-spd{font:700 13px var(--f-num)}.sim-pos{margin-left:auto;font-size:12px;color:#8fb39c}
+.sim-ctl .sim-spd{font:700 13px var(--f-num)}.sim-pos{padding:0 12px 8px;font-size:12px;color:#8fb39c}
 .sim-inns{display:flex;gap:6px;overflow-x:auto;padding:0 12px 10px;scrollbar-width:none}
 .sim-inns button{flex:none;padding:4px 10px;border-radius:12px;font-size:12px;background:rgba(255,255,255,.08);color:#cfe3d6}
 .sim-log{padding:0 12px}.sim-log div{display:grid;grid-template-columns:44px 1fr auto;gap:6px;padding:7px 0;border-top:1px solid rgba(255,255,255,.08);font-size:13px;line-height:1.5}
@@ -1482,6 +1482,10 @@ function liveHTML(g){
 const HP=[125.4,198.3],MOUND=[125.4,174.1],BASE_XY=[HP,[150.9,172.8],[125.4,147.4],[99.9,172.8],HP];
 const FIELD_POS={C:[125.4,208],'1B':[160,160],'2B':[141,139],SS:[109,139],'3B':[91,160],LF:[82,100],CF:[125.4,80],RF:[169,100]};
 const BASE_IX={'1B':1,'2B':2,'3B':3,'4B':4,score:4};
+// 镜头：平时拉近内野，球飞向外野时拉远；比例和画面一致（226:192）
+const CAM_WIDE=[12,30,226,192],CAM_NEAR=[62,111,126,107];
+// 守备球员名字摆放：一二垒放右边，三垒游击放左边，外野放下面，免得和垒上跑者的名字叠在一起
+const NAME_AT={P:[7,1.8,'start'],C:[7,1.8,'start'],'1B':[7,1.8,'start'],'2B':[7,-2.5,'start'],SS:[-7,-2.5,'end'],'3B':[-7,1.8,'end'],LF:[0,9.5,'middle'],CF:[0,9.5,'middle'],RF:[0,9.5,'middle']};
 async function loadPlays(pk){
   const d=await api(`/v1.1/game/${pk}/feed/live?fields=liveData,plays,allPlays,result,description,eventType,awayScore,homeScore,about,inning,halfInning,isComplete,atBatIndex,count,outs,matchup,batter,pitcher,id,fullName,runners,movement,start,end,isOut,outBase,outNumber,details,runner,isScoringEvent,credits,credit,position,abbreviation,player,playEvents,isPitch,pitchData,startSpeed,type,code,call,description,isInPlay,isStrike,hitData,coordinates,coordX,coordY,trajectory`,15000);
   const all=(d.liveData&&d.liveData.plays&&d.liveData.plays.allPlays)||[];
@@ -1583,12 +1587,12 @@ function simBuild(g){
       <text class="sim-flash" font-size="9" font-weight="900" text-anchor="middle" fill="#ff5468" stroke="#0a1a10" stroke-width="2" paint-order="stroke"></text></svg>
     <div class="sim-cap"><small class="sim-k"></small><p class="sim-tx">正在读取比赛数据…</p></div>
     <div class="sim-ctl"><button data-sim="prev">‹ 上一棒</button><button data-sim="toggle" class="sim-play">暂停</button><button data-sim="next">下一棒 ›</button>
-      <button data-sim="speed" class="sim-spd">1×</button><span class="sim-pos"></span></div>
+      <button data-sim="speed" class="sim-spd">1×</button><button data-sim="cam" class="sim-cam">镜头：跟随</button></div><div class="sim-pos"></div>
     <div class="sim-inns"></div><div class="sim-log"></div>
     <div class="note">根据 MLB 官方逐球数据重建的示意动画：球的落点、跑者路线和判定是真实的，球员的跑位是示意。${g.status==='live'?'每 15 秒同步一次新的打席。':''}</div>`;
   const $$=c=>el.querySelector(c);
-  Object.assign(SIM,{el,pk:g.pk,g,idx:0,t:0,log:[],speed:1,playing:true,live:g.status==='live',
-    q:{sc:$$('.sim-sc'),inn:$$('.sim-inn'),outs:$$('.sim-outs'),cnt:$$('.sim-cnt'),dg:$$('.sim-dg'),rg:$$('.sim-rg'),ball:$$('.sim-ball'),sh:$$('.sim-sh'),ring:$$('.sim-ring'),trail:$$('.sim-trail'),flash:$$('.sim-flash'),k:$$('.sim-k'),tx:$$('.sim-tx'),
+  Object.assign(SIM,{el,pk:g.pk,g,idx:0,t:0,log:[],speed:1,playing:true,live:g.status==='live',view:CAM_NEAR.slice(),camAuto:store.get('simcam',true),
+    q:{svg:$$('.sim-f'),cam:$$('.sim-cam'),sc:$$('.sim-sc'),inn:$$('.sim-inn'),outs:$$('.sim-outs'),cnt:$$('.sim-cnt'),dg:$$('.sim-dg'),rg:$$('.sim-rg'),ball:$$('.sim-ball'),sh:$$('.sim-sh'),ring:$$('.sim-ring'),trail:$$('.sim-trail'),flash:$$('.sim-flash'),k:$$('.sim-k'),tx:$$('.sim-tx'),
       play:$$('.sim-play'),spd:$$('.sim-spd'),pos:$$('.sim-pos'),inns:$$('.sim-inns'),logEl:$$('.sim-log')}});
   // 9 个守备 + 最多 5 个跑者（含打者），圆点复用
   const dot=(cls)=>`<g class="${cls}"><circle r="4.6" stroke-width="1"/><text y="1.7" font-size="4.6" text-anchor="middle" font-weight="700"></text><text class="nm" y="9.5" font-size="5" text-anchor="middle" fill="#fff"></text></g>`;
@@ -1633,6 +1637,7 @@ function simCtl(a){
   else if(a==='prev')simGo(SIM.t>1500?SIM.idx:SIM.idx-1);
   else if(a==='next')simGo(SIM.idx+1);
   else if(a==='speed')SIM.speed=SIM.speed===1?2:SIM.speed===2?4:1;
+  else if(a==='cam'){SIM.camAuto=!SIM.camAuto;store.set('simcam',SIM.camAuto);}
   else if(a.startsWith('inn:')){const n=+a.slice(4);simGo(plays.findIndex(p=>p.inn===n));SIM.playing=true;}
 }
 function simDraw(){
@@ -1670,7 +1675,7 @@ function simDraw(){
     const gl=goal[k];if(gl&&t>gl.t0){const from=gl.from||xy;pos=lerp(from,gl.to,ease((t-gl.t0)/(gl.t1-gl.t0)));}
     el.setAttribute('transform',`translate(${pos[0].toFixed(1)},${pos[1].toFixed(1)})`);
     const hot=segNow&&segNow.node.pos===k;
-    const c=el.children;c[0].setAttribute('fill',DC);c[0].setAttribute('stroke',hot?'#ffd166':'#fff');c[0].setAttribute('stroke-width',hot?'2':'1');c[1].setAttribute('fill','#fff');c[1].textContent=who&&who.no?who.no:k;c[2].textContent=who&&who.n?shortName(who.n):'';});
+    const c=el.children;c[0].setAttribute('fill',DC);c[0].setAttribute('stroke',hot?'#ffd166':'#fff');c[0].setAttribute('stroke-width',hot?'2':'1');c[1].setAttribute('fill','#fff');c[1].textContent=who&&who.no?who.no:k;const na=NAME_AT[k];c[2].setAttribute('x',na[0]);c[2].setAttribute('y',na[1]);c[2].setAttribute('text-anchor',na[2]);c[2].setAttribute('font-size','4.6');c[2].textContent=who&&who.n?shortName(who.n):'';});
   // 跑者：本打席有跑动的按路线动，没动的留在垒上；打者先站在本垒
   const fr=done?1:ease((t-T.rs)/(T.R||1)),moving=new Set(p.run.map(r=>r.id)),dots=[];
   if(!done){
@@ -1681,7 +1686,7 @@ function simDraw(){
   }else SIM.post.bases.forEach((id,bi)=>{if(id)dots.push({xy:BASE_XY[bi],n:SIM.names[id]});});
   [...q.rg.children].forEach((el,i)=>{const d=dots[i];if(!d){el.style.display='none';return;}el.style.display='';
     el.setAttribute('transform',`translate(${d.xy[0].toFixed(1)},${d.xy[1].toFixed(1)})`);el.style.opacity=d.fade?.25:1;
-    const c=el.children;c[0].setAttribute('fill',d.out?'#d22d49':'#fff');c[0].setAttribute('stroke',OC);c[0].setAttribute('stroke-width','1.6');c[1].textContent='';c[2].textContent=shortName(d.n);});
+    const c=el.children;c[0].setAttribute('fill',d.out?'#d22d49':'#fff');c[0].setAttribute('stroke',OC);c[0].setAttribute('stroke-width','1.6');c[1].textContent='';c[2].setAttribute('y','-6.5');c[2].setAttribute('font-weight','700');c[2].textContent=shortName(d.n);});
   // 球：先一球一球投，再飞向落点；高飞球画成“升高”（变大、和影子分开）
   let ball=null,lift=0;
   if(!done&&t<T.P){const k=t%420;if(k<300)ball=lerp(MOUND,HP,k/300);}
@@ -1694,6 +1699,11 @@ function simDraw(){
   const throwing=!!(segNow&&!segNow.carry),inFlight=land&&!done&&t>=T.P&&t<T.P+T.H;
   q.ring.style.display=ball&&(throwing||inFlight)?'':'none';if(ball){q.ring.setAttribute('cx',ball[0]);q.ring.setAttribute('cy',ball[1]-lift);}
   q.trail.style.display=throwing?'':'none';if(throwing){q.trail.setAttribute('x1',segNow.a[0]);q.trail.setAttribute('y1',segNow.a[1]);q.trail.setAttribute('x2',segNow.b[0]);q.trail.setAttribute('y2',segNow.b[1]);}
+  // 镜头：球（或传球）到了外野就拉远，其余时间拉近内野
+  const far=pt=>pt&&(Math.hypot(pt[0]-HP[0],pt[1]-HP[1])>58||pt[1]<112);
+  const wide=!SIM.camAuto||(!done&&land&&t>=T.P-150&&(far(land)&&t<T.P+T.H+900||segNow&&(far(segNow.a)||far(segNow.b))));
+  const tgt=wide?CAM_WIDE:CAM_NEAR;SIM.view=SIM.view.map((v,i)=>v+(tgt[i]-v)*.12);
+  q.svg.setAttribute('viewBox',SIM.view.map(v=>v.toFixed(2)).join(' '));q.cam.textContent=SIM.camAuto?'镜头：跟随':'镜头：全场';
   // 出局提示：传到垒上那一刻弹出“出局！”，第二个出局是“双杀！”
   const outSegs=segs.filter(x=>x.node.out&&x.node.base!=null),lastOut=done?null:[...outSegs].reverse().find(x=>t>=x.t1&&t<x.t1+1300);
   const caughtNode=ch&&ch.nodes[0].caught&&!done&&t>=T.P+T.H&&t<T.P+T.H+1300?ch.nodes[0]:null;
