@@ -1,0 +1,31 @@
+name: 国内访问检测
+
+on:
+  push:
+    paths:
+      - scripts/china-check.mjs
+      - .github/workflows/china-check.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 从中国大陆节点访问各个地址
+        run: node scripts/china-check.mjs report.md
+      - name: 写入运行摘要
+        if: always()
+        run: test -f report.md && cat report.md >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: china-check
+          path: report.md
+          if-no-files-found: ignore
