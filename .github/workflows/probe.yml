@@ -1,0 +1,18 @@
+name: probe
+on: pull_request
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          A=https://statsapi.mlb.com/api
+          F="liveData,plays,allPlays,result,description,eventType,awayScore,homeScore,about,inning,halfInning,isComplete,atBatIndex,count,outs,matchup,batter,pitcher,id,fullName,runners,movement,originBase,start,end,isOut,outBase,details,runner,isScoringEvent,movementReason,playEvents,isPitch,pitchData,startSpeed,type,code,call,description,isInPlay,isStrike,hitData,coordinates,coordX,coordY,trajectory"
+          curl -s "$A/v1.1/game/849802/feed/live?fields=$F" > f.json; ls -la f.json; gzip -c f.json | wc -c
+          python3 - <<'PY'
+          import json;d=json.load(open('f.json'));ps=d['liveData']['plays']['allPlays'];print(len(ps))
+          for p in ps:
+            if any(r['movement'].get('isOut') for r in p.get('runners',[])) and len(p.get('runners',[]))>1:
+              print(json.dumps(p)[:2500]);break
+          hit=[p for p in ps if p['result'].get('eventType')=='single'][0]
+          print(json.dumps(hit['runners'])[:1200]); print(json.dumps(hit['playEvents'][-1])[:800])
+          PY
