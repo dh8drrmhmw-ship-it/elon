@@ -1483,6 +1483,7 @@ const HP=[125.4,198.3],MOUND=[125.4,174.1],BASE_XY=[HP,[150.9,172.8],[125.4,147.
 const FIELD_POS={C:[125.4,208],'1B':[160,160],'2B':[141,139],SS:[109,139],'3B':[91,160],LF:[82,100],CF:[125.4,80],RF:[169,100]};
 const BASE_IX={'1B':1,'2B':2,'3B':3,'4B':4,score:4};
 // 镜头：平时拉近内野，球飞向外野时拉远；比例和画面一致（226:192）
+const PT=800; // 每一球演多久（毫秒），留时间看清球种和球速
 const CAM_WIDE=[12,30,226,192],CAM_NEAR=[62,111,126,107];
 // 守备球员名字摆放：一二垒放右边，三垒游击放左边，外野放下面，免得和垒上跑者的名字叠在一起
 const NAME_AT={P:[7,1.8,'start'],C:[7,1.8,'start'],'1B':[7,1.8,'start'],'2B':[7,-2.5,'start'],SS:[-7,-2.5,'end'],'3B':[-7,1.8,'end'],LF:[0,9.5,'middle'],CF:[0,9.5,'middle'],RF:[0,9.5,'middle']};
@@ -1548,7 +1549,7 @@ function simChain(p){
 const coverPt=b=>lerp(BASE_XY[b],MOUND,.1);
 function simTimes(p){
   if(p._t)return p._t;
-  const n=Math.min(p.pitches.length,8),P=n*420,H=p.hit?1300:0,moves=p.run.some(r=>r.e!==r.s||r.out),ch=simChain(p),segs=[];
+  const n=Math.min(p.pitches.length,8),P=n*PT,H=p.hit?1300:0,moves=p.run.some(r=>r.e!==r.s||r.out),ch=simChain(p),segs=[];
   if(ch){let at=[p.hit.x,p.hit.y],t0=P+H+300;const n0=ch.nodes[0];
     if(n0.out&&n0.base!=null){const b=coverPt(n0.base);segs.push({a:at,b,t0,t1:t0+600,node:n0,carry:1});at=b;t0+=750;} // 自己拿球踩垒
     for(let k=1;k<ch.nodes.length;k++){const nd=ch.nodes[k],b=nd.base!=null?coverPt(nd.base):FIELD_POS[nd.pos]||MOUND,du=300+Math.hypot(b[0]-at[0],b[1]-at[1])*8;
@@ -1586,6 +1587,8 @@ function simBuild(g){
     <svg class="sim-f" viewBox="12 30 226 192" role="img" aria-label="比赛画面">${simField()}<g class="sim-dg"></g><g class="sim-rg"></g>
       <line class="sim-trail" stroke="#ffd166" stroke-width="1.2" stroke-dasharray="2 2" opacity=".9"/>
       <ellipse class="sim-sh" rx="1.8" ry="1" fill="#000" opacity=".35"/><circle class="sim-ring" r="4.6" fill="none" stroke="#ffd166" stroke-width="1"/><circle class="sim-ball" r="2.2" fill="#fff" stroke="#333" stroke-width=".3"/>
+      <g class="sim-pb" transform="translate(132,182)"><rect width="66" height="17" rx="2.5" fill="#0a1a10" fill-opacity=".88" stroke="#ffd166" stroke-width=".5"/>
+        <text class="l1" x="4" y="7" font-size="5.6" font-weight="700" fill="#fff"></text><text class="l2" x="4" y="14" font-size="5" font-weight="700"></text></g>
       <text class="sim-flash" font-size="9" font-weight="900" text-anchor="middle" fill="#ff5468" stroke="#0a1a10" stroke-width="2" paint-order="stroke"></text></svg>
     <div class="sim-cap"><small class="sim-k"></small><p class="sim-tx">正在读取比赛数据…</p></div>
     <div class="sim-ctl"><button data-sim="prev">‹ 上一棒</button><button data-sim="toggle" class="sim-play">暂停</button><button data-sim="next">下一棒 ›</button>
@@ -1594,7 +1597,7 @@ function simBuild(g){
     <div class="note">根据 MLB 官方逐球数据重建的示意动画：球的落点、跑者路线和判定是真实的，球员的跑位是示意。${g.status==='live'?'每 15 秒同步一次新的打席。':''}</div>`;
   const $$=c=>el.querySelector(c);
   Object.assign(SIM,{el,pk:g.pk,g,idx:0,t:0,log:[],speed:1,playing:true,live:g.status==='live',view:CAM_NEAR.slice(),camAuto:store.get('simcam',true),
-    q:{svg:$$('.sim-f'),cam:$$('.sim-cam'),sc:$$('.sim-sc'),inn:$$('.sim-inn'),outs:$$('.sim-outs'),cnt:$$('.sim-cnt'),dg:$$('.sim-dg'),rg:$$('.sim-rg'),ball:$$('.sim-ball'),sh:$$('.sim-sh'),ring:$$('.sim-ring'),trail:$$('.sim-trail'),flash:$$('.sim-flash'),k:$$('.sim-k'),tx:$$('.sim-tx'),
+    q:{svg:$$('.sim-f'),cam:$$('.sim-cam'),sc:$$('.sim-sc'),inn:$$('.sim-inn'),outs:$$('.sim-outs'),cnt:$$('.sim-cnt'),dg:$$('.sim-dg'),rg:$$('.sim-rg'),ball:$$('.sim-ball'),sh:$$('.sim-sh'),ring:$$('.sim-ring'),pb:$$('.sim-pb'),trail:$$('.sim-trail'),flash:$$('.sim-flash'),k:$$('.sim-k'),tx:$$('.sim-tx'),
       play:$$('.sim-play'),spd:$$('.sim-spd'),pos:$$('.sim-pos'),inns:$$('.sim-inns'),logEl:$$('.sim-log')}});
   // 9 个守备 + 最多 5 个跑者（含打者），圆点复用
   const dot=(cls)=>`<g class="${cls}"><circle r="4.6" stroke-width="1"/><text y="1.7" font-size="4.6" text-anchor="middle" font-weight="700"></text><text class="nm" y="9.5" font-size="5" text-anchor="middle" fill="#fff"></text></g>`;
@@ -1654,7 +1657,7 @@ function simDraw(){
   const outs=after?p.outs:pre.outs;q.outs.innerHTML=[0,1,2].map(i=>`<i class="${i<outs?'on':''}"></i>`).join('');
   q.pos.textContent=done?(SIM.live?'等待下一个打席…':'全场结束'):`第 ${SIM.idx+1} / ${plays.length} 个打席`;
   // 球数：逐球累加
-  const shown=p.pitches.slice(-T.n),j=done?T.n:Math.min(T.n-1,Math.floor(t/420));let b=0,s=0;
+  const shown=p.pitches.slice(-T.n),j=done?T.n:Math.min(T.n-1,Math.floor(t/PT));let b=0,s=0;
   p.pitches.slice(0,p.pitches.length-T.n).concat(shown.slice(0,Math.max(0,j))).forEach(x=>{if(x.k==='ball')b++;else if(x.k==='strike'&&(s<2||!/Foul/.test(x.call||'')))s++;});
   q.cnt.textContent=after||done?'':`${Math.min(b,3)}-${Math.min(s,2)}`;
   // 守备：防守方是 top 时的主队
@@ -1691,7 +1694,7 @@ function simDraw(){
     const c=el.children;c[0].setAttribute('fill',d.out?'#d22d49':'#fff');c[0].setAttribute('stroke',OC);c[0].setAttribute('stroke-width','1.6');c[1].textContent='';c[2].setAttribute('y','-6.5');c[2].setAttribute('font-weight','700');c[2].textContent=shortName(d.n);});
   // 球：先一球一球投，再飞向落点；高飞球画成“升高”（变大、和影子分开）
   let ball=null,lift=0;
-  if(!done&&t<T.P){const k=t%420;if(k<300)ball=lerp(MOUND,HP,k/300);}
+  if(!done&&t<T.P){const k=t%PT;if(k<350)ball=lerp(MOUND,HP,k/350);}
   else if(land&&!done&&t<T.P+T.H){const f=ease((t-T.P)/T.H);ball=lerp(HP,land,f);const air=/fly|line|popup/.test(p.hit.t);lift=air?Math.sin(Math.min(1,(t-T.P)/T.H)*Math.PI)*(/popup/.test(p.hit.t)?14:p.hit.t==='line_drive'?4:10):0;}
   else if(land&&!done&&segNow){const f=(t-segNow.t0)/(segNow.t1-segNow.t0);ball=lerp(segNow.a,segNow.b,f);lift=segNow.carry?0:Math.sin(f*Math.PI)*3;}
   else if(land&&!done&&t<T.end-1800+400)ball=segDone.length?segDone[segDone.length-1].b:land;
@@ -1701,11 +1704,18 @@ function simDraw(){
   const throwing=!!(segNow&&!segNow.carry),inFlight=land&&!done&&t>=T.P&&t<T.P+T.H;
   q.ring.style.display=ball&&(throwing||inFlight)?'':'none';if(ball){q.ring.setAttribute('cx',ball[0]);q.ring.setAttribute('cy',ball[1]-lift);}
   q.trail.style.display=throwing?'':'none';if(throwing){q.trail.setAttribute('x1',segNow.a[0]);q.trail.setAttribute('y1',segNow.a[1]);q.trail.setAttribute('x2',segNow.b[0]);q.trail.setAttribute('y2',segNow.b[1]);}
+  // 球种、球速标牌：投出就显示球种和球速，球到本垒后显示判定
+  const pbOn=!done&&t<T.P&&shown[j];q.pb.style.display=pbOn?'':'none';
+  if(pbOn){const x=shown[j],arrived=t%PT>=350,[l1,l2]=q.pb.querySelectorAll('text');
+    l1.textContent=`${PITCH_CN[x.code]||'投球'}${x.mph?` · ${Math.round(x.mph)} 英里/时（${mph2kmh(x.mph)} 公里）`:''}`;
+    l2.textContent=arrived?(CALL_CN[x.call]||x.call||''):'';l2.setAttribute('fill',KCOL[x.k]==='#1f5fd1'?'#7aa5ff':KCOL[x.k]);
+    const w=Math.max(40,[...l1.textContent].reduce((a,ch)=>a+(/[\u3000-\uffff]/.test(ch)?5.6:3.2),0)+8);q.pb.querySelector('rect').setAttribute('width',w.toFixed(1));}
   // 镜头：球（或传球）到了外野就拉远，其余时间拉近内野
   const far=pt=>pt&&(Math.hypot(pt[0]-HP[0],pt[1]-HP[1])>58||pt[1]<112);
   const wide=!SIM.camAuto||(!done&&land&&t>=T.P-150&&(far(land)&&t<T.P+T.H+900||segNow&&(far(segNow.a)||far(segNow.b))));
   const tgt=wide?CAM_WIDE:CAM_NEAR;SIM.view=SIM.view.map((v,i)=>v+(tgt[i]-v)*.12);
-  q.svg.setAttribute('viewBox',SIM.view.map(v=>v.toFixed(2)).join(' '));q.cam.textContent=SIM.camAuto?'镜头：跟随':'镜头：全场';
+  q.svg.setAttribute('viewBox',SIM.view.map(v=>v.toFixed(2)).join(' '));
+  q.pb.setAttribute('transform',`translate(${(SIM.view[0]+2).toFixed(2)},${(SIM.view[1]+2).toFixed(2)}) scale(${(SIM.view[2]/CAM_NEAR[2]).toFixed(3)})`); // 标牌固定在画面左上角q.cam.textContent=SIM.camAuto?'镜头：跟随':'镜头：全场';
   // 出局提示：传到垒上那一刻弹出“出局！”，第二个出局是“双杀！”
   const outSegs=segs.filter(x=>x.node.out&&x.node.base!=null),lastOut=done?null:[...outSegs].reverse().find(x=>t>=x.t1&&t<x.t1+1300);
   const caughtNode=ch&&ch.nodes[0].caught&&!done&&t>=T.P+T.H&&t<T.P+T.H+1300?ch.nodes[0]:null;
