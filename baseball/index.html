@@ -315,10 +315,15 @@ td.tm button,td.tm span.t{display:inline-flex;align-items:center;gap:8px}
 .sim-outs{display:flex;gap:3px}.sim-outs i{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,.2)}.sim-outs i.on{background:#ff5468}
 .sim-f{display:block;width:100%;background:#163a24}
 .sim-f .fd text,.sim-f .rn text{font-family:var(--f-num)}.sim-f .nm{paint-order:stroke;stroke:#0a1a10;stroke-width:1.6px}
+.sim-3d{position:relative;background:#0b1d13;min-height:200px}.sim-3d canvas{display:block;width:100%}
+.s3-msg{position:absolute;inset:0;display:grid;place-items:center;font-size:13px;color:#8fb39c;padding:20px;text-align:center}
+.s3-badge{position:absolute;left:8px;top:8px;display:grid;gap:2px;padding:6px 10px;border-radius:6px;background:rgba(10,26,16,.85);box-shadow:inset 0 0 0 1px #ffd166;font-size:13px;pointer-events:none}
+.s3-badge span{font-weight:700;font-size:12px}
+.sim-mode{font-weight:800!important;color:#ffd166!important}
 .sim-cap{padding:10px 14px;min-height:64px;background:#0a1a10;border-top:1px solid rgba(255,255,255,.08)}
 .sim-k{display:block;font-size:11px;color:#8fb39c;margin-bottom:3px}
 .sim-tx{margin:0;font-size:15px;line-height:1.6}.sim-tx.run{color:#ffd166;font-weight:700}
-.sim-ctl{display:flex;align-items:center;gap:8px;padding:8px 12px}
+.sim-ctl{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 12px}
 .sim-ctl button{padding:0 10px;height:32px;font-size:13px!important;border-radius:8px;background:rgba(255,255,255,.1);color:#fff;font-size:15px}
 .sim-ctl .sim-spd{font:700 13px var(--f-num)}.sim-pos{padding:0 12px 8px;font-size:12px;color:#8fb39c}
 .sim-inns{display:flex;gap:6px;overflow-x:auto;padding:0 12px 10px;scrollbar-width:none}
@@ -1590,14 +1595,15 @@ function simBuild(g){
       <g class="sim-pb" transform="translate(132,182)"><rect width="66" height="17" rx="2.5" fill="#0a1a10" fill-opacity=".88" stroke="#ffd166" stroke-width=".5"/>
         <text class="l1" x="4" y="7" font-size="5.6" font-weight="700" fill="#fff"></text><text class="l2" x="4" y="14" font-size="5" font-weight="700"></text></g>
       <text class="sim-flash" font-size="9" font-weight="900" text-anchor="middle" fill="#ff5468" stroke="#0a1a10" stroke-width="2" paint-order="stroke"></text></svg>
+    <div class="sim-3d" style="display:none"><div class="s3-msg">正在加载 3D 球场…</div><div class="s3-badge" style="display:none"></div></div>
     <div class="sim-cap"><small class="sim-k"></small><p class="sim-tx">正在读取比赛数据…</p></div>
     <div class="sim-ctl"><button data-sim="prev">‹ 上一棒</button><button data-sim="toggle" class="sim-play">暂停</button><button data-sim="next">下一棒 ›</button>
-      <button data-sim="speed" class="sim-spd">1×</button><button data-sim="cam" class="sim-cam">镜头：跟随</button></div><div class="sim-pos"></div>
+      <button data-sim="speed" class="sim-spd">1×</button><button data-sim="cam" class="sim-cam">镜头：跟随</button><button data-sim="mode" class="sim-mode">3D</button></div><div class="sim-pos"></div>
     <div class="sim-inns"></div><div class="sim-log"></div>
     <div class="note">根据 MLB 官方逐球数据重建的示意动画：球的落点、跑者路线和判定是真实的，球员的跑位是示意。${g.status==='live'?'每 15 秒同步一次新的打席。':''}</div>`;
   const $$=c=>el.querySelector(c);
-  Object.assign(SIM,{el,pk:g.pk,g,idx:0,t:0,log:[],speed:1,playing:true,live:g.status==='live',view:CAM_NEAR.slice(),camAuto:store.get('simcam',true),
-    q:{svg:$$('.sim-f'),cam:$$('.sim-cam'),sc:$$('.sim-sc'),inn:$$('.sim-inn'),outs:$$('.sim-outs'),cnt:$$('.sim-cnt'),dg:$$('.sim-dg'),rg:$$('.sim-rg'),ball:$$('.sim-ball'),sh:$$('.sim-sh'),ring:$$('.sim-ring'),pb:$$('.sim-pb'),trail:$$('.sim-trail'),flash:$$('.sim-flash'),k:$$('.sim-k'),tx:$$('.sim-tx'),
+  Object.assign(SIM,{el,pk:g.pk,g,idx:0,t:0,log:[],speed:1,playing:true,live:g.status==='live',view:CAM_NEAR.slice(),camAuto:store.get('simcam',true),mode:store.get('simmode','2d'),
+    q:{svg:$$('.sim-f'),cam:$$('.sim-cam'),mode:$$('.sim-mode'),h3:$$('.sim-3d'),sc:$$('.sim-sc'),inn:$$('.sim-inn'),outs:$$('.sim-outs'),cnt:$$('.sim-cnt'),dg:$$('.sim-dg'),rg:$$('.sim-rg'),ball:$$('.sim-ball'),sh:$$('.sim-sh'),ring:$$('.sim-ring'),pb:$$('.sim-pb'),trail:$$('.sim-trail'),flash:$$('.sim-flash'),k:$$('.sim-k'),tx:$$('.sim-tx'),
       play:$$('.sim-play'),spd:$$('.sim-spd'),pos:$$('.sim-pos'),inns:$$('.sim-inns'),logEl:$$('.sim-log')}});
   // 9 个守备 + 最多 5 个跑者（含打者），圆点复用
   const dot=(cls)=>`<g class="${cls}"><circle r="4.6" stroke-width="1"/><text y="1.7" font-size="4.6" text-anchor="middle" font-weight="700"></text><text class="nm" y="9.5" font-size="5" text-anchor="middle" fill="#fff"></text></g>`;
@@ -1643,11 +1649,13 @@ function simCtl(a){
   else if(a==='next')simGo(SIM.idx+1);
   else if(a==='speed')SIM.speed=SIM.speed===1?2:SIM.speed===2?4:1;
   else if(a==='cam'){SIM.camAuto=!SIM.camAuto;store.set('simcam',SIM.camAuto);}
+  else if(a==='mode'){SIM.mode=SIM.mode==='3d'?'2d':'3d';store.set('simmode',SIM.mode);}
   else if(a.startsWith('inn:')){const n=+a.slice(4);simGo(plays.findIndex(p=>p.inn===n));SIM.playing=true;}
 }
 function simDraw(){
   const q=SIM.q,g=SIM.g,plays=Live.plays[SIM.pk];if(!q)return;
   q.play.textContent=SIM.playing?'暂停':'播放';q.spd.textContent=SIM.speed+'×';
+  const m3=SIM.mode==='3d';q.svg.style.display=m3?'none':'';q.h3.style.display=m3?'':'none';q.mode.textContent=m3?'2D':'3D';
   if(!plays)return;
   const done=SIM.idx>=plays.length,p=done?plays[plays.length-1]:plays[SIM.idx],t=SIM.t;
   if(!p){q.tx.textContent='这场比赛还没有完成的打席';return;}
@@ -1674,12 +1682,13 @@ function simDraw(){
   // 每个参与传球的野手的目标位置：接球的人跑到落点，接传球的人跑去补位（垒包）
   const goal={};if(ch&&!done){const n0=ch.nodes[0];goal[n0.pos]={to:land,t0:T.P,t1:T.P+T.H};
     segs.forEach(sg=>{const k=sg.node.pos;if(sg.carry)goal[k]={to:sg.b,t0:sg.t0,t1:sg.t1,from:land};else if(sg.node.base!=null&&!goal[k])goal[k]={to:sg.b,t0:T.P,t1:T.P+T.H+200};});}
+  const FR={f:[],r:[],dc:DC,oc:OC}; // 这一帧的画面数据，3D 画面照着它画
   const fds=[['P',MOUND,{no:pitNo,n:p.pit&&p.pit.fullName}],...Object.entries(FIELD_POS).map(([k,xy])=>[k,xy,posMap[k]])];
   [...q.dg.children].forEach((el,i)=>{const [k,xy,who]=fds[i];let pos=xy;
     if(k===chase&&land&&!done&&t>T.P){const d=Math.hypot(xy[0]-land[0],xy[1]-land[1]),f=Math.min(1,ease((t-T.P)/(T.H+500))*Math.min(1,30/d));pos=lerp(xy,land,f*.9);}
     const gl=goal[k];if(gl&&t>gl.t0){const from=gl.from||xy;pos=lerp(from,gl.to,ease((t-gl.t0)/(gl.t1-gl.t0)));}
     el.setAttribute('transform',`translate(${pos[0].toFixed(1)},${pos[1].toFixed(1)})`);
-    const hot=segNow&&segNow.node.pos===k;
+    const hot=segNow&&segNow.node.pos===k;FR.f.push({k,xy:pos,no:who&&who.no?who.no:k,n:who&&who.n?shortName(who.n):'',hot});
     const c=el.children;c[0].setAttribute('fill',DC);c[0].setAttribute('stroke',hot?'#ffd166':'#fff');c[0].setAttribute('stroke-width',hot?'2':'1');c[1].setAttribute('fill','#fff');c[1].textContent=who&&who.no?who.no:k;const na=NAME_AT[k];c[2].setAttribute('x',na[0]);c[2].setAttribute('y',na[1]);c[2].setAttribute('text-anchor',na[2]);c[2].setAttribute('font-size','4.6');c[2].textContent=who&&who.n?shortName(who.n):'';});
   // 跑者：本打席有跑动的按路线动，没动的留在垒上；打者先站在本垒
   const fr=done?1:ease((t-T.rs)/(T.R||1)),moving=new Set(p.run.map(r=>r.id)),dots=[];
@@ -1689,6 +1698,7 @@ function simDraw(){
       dots.push({xy:r.s===0&&fr<=0?[HP[0]-8,HP[1]-4]:xy,n:r.n,out:outNow,fade:gone&&(!sg||t>sg.t1+900)});});
     if(!p.run.some(r=>r.s===0)&&p.bat)dots.push({xy:[HP[0]-8,HP[1]-4],n:p.bat.fullName,fade:after});
   }else SIM.post.bases.forEach((id,bi)=>{if(id)dots.push({xy:BASE_XY[bi],n:SIM.names[id]});});
+  dots.slice(0,5).forEach(d=>FR.r.push({xy:d.xy,n:shortName(d.n),out:d.out,fade:d.fade}));
   [...q.rg.children].forEach((el,i)=>{const d=dots[i];if(!d){el.style.display='none';return;}el.style.display='';
     el.setAttribute('transform',`translate(${d.xy[0].toFixed(1)},${d.xy[1].toFixed(1)})`);el.style.opacity=d.fade?.25:1;
     const c=el.children;c[0].setAttribute('fill',d.out?'#d22d49':'#fff');c[0].setAttribute('stroke',OC);c[0].setAttribute('stroke-width','1.6');c[1].textContent='';c[2].setAttribute('y','-6.5');c[2].setAttribute('font-weight','700');c[2].textContent=shortName(d.n);});
@@ -1723,6 +1733,9 @@ function simDraw(){
   if(kNow){q.flash.style.display='';q.flash.setAttribute('x',HP[0]);q.flash.setAttribute('y',HP[1]-12);q.flash.textContent='三振！';}
   else if(lastOut||caughtNode){const k=lastOut?outSegs.indexOf(lastOut):0,pt=lastOut?lastOut.b:land;q.flash.style.display='';q.flash.setAttribute('x',pt[0]);q.flash.setAttribute('y',pt[1]-7);
     q.flash.textContent=caughtNode&&!lastOut?'接杀！':k===1?'双杀！':k===2?'三杀！':'出局！';}else q.flash.style.display='none';
+  if(SIM.mode==='3d'){FR.ball=ball;FR.lift=lift;FR.wide=wide;FR.throwing=throwing||inFlight;
+    FR.flash=q.flash.style.display==='none'?null:{t:q.flash.textContent,xy:[+q.flash.getAttribute('x'),+q.flash.getAttribute('y')+7]};
+    const [l1,l2]=q.pb.querySelectorAll('text');FR.badge=q.pb.style.display==='none'?null:[l1.textContent,l2.textContent,l2.getAttribute('fill')];s3Draw(FR);}
   // 解说
   const head=`${p.inn}局${p.top?'上':'下'} · ${esc(team(off.t).n)}进攻 · ${esc(shortName(p.pit&&p.pit.fullName))} 对 ${esc(shortName(p.bat&&p.bat.fullName))}`;
   if(done){q.k.innerHTML=head;q.tx.textContent=SIM.live?'等待下一个打席…':'比赛结束，可以点上方局数重新回放';return;}
@@ -1736,6 +1749,103 @@ function simDraw(){
     const nOut=outSegs.filter(x=>t>=x.t1).length;if(nOut>=2)tx+=nOut===2?' 双杀！':' 三杀！';q.tx.textContent=tx;}
   else q.tx.textContent=zhPlay(p.desc).text||p.desc;
   q.tx.classList.toggle('run',after&&p.run.some(r=>r.score));
+}
+
+/* ---------- 比赛画面 3D：用 three.js 把同一份画面数据画成立体球场（按需下载，放在本站 vendor/ 下） ---------- */
+const S3={state:'idle'};
+function s3Load(){
+  if(S3.state!=='idle')return;S3.state='loading';
+  const sc=document.createElement('script');sc.src='vendor/three.min.js';
+  sc.onload=()=>{try{s3Setup();S3.state='ready';}catch(e){S3.state='err';}};sc.onerror=()=>{S3.state='err';};
+  document.head.appendChild(sc);
+}
+// 球场坐标（Gameday 250×250）→ 3D：本垒在原点，外野朝 -Z，Y 向上
+const W3=(xy,h)=>new THREE.Vector3(xy[0]-HP[0],h||0,xy[1]-HP[1]);
+function s3FieldTexture(){
+  const N=1024,k=N/250,cv=document.createElement('canvas');cv.width=cv.height=N;const c=cv.getContext('2d');
+  const fair=(r,a)=>[HP[0]+r*Math.sin(a),HP[1]-r*Math.cos(a)],q=Math.PI/4,arc=[];
+  for(let a=-q;a<=q+1e-6;a+=q/24)arc.push(fair(150+(Math.abs(a)<q*.5?8:0)*Math.cos(a*2),a));
+  const path=pts=>{c.beginPath();pts.forEach((p,i)=>c[i?'lineTo':'moveTo'](p[0]*k,p[1]*k));c.closePath();};
+  c.fillStyle='#173d26';c.fillRect(0,0,N,N);
+  c.save();path([HP,...arc]);c.clip();
+  for(let i=-N;i<N*2;i+=28){c.fillStyle=(i/28)%2?'#2f7d46':'#2a7340';c.beginPath();c.moveTo(i,0);c.lineTo(i+14,0);c.lineTo(i+14-N,N);c.lineTo(i-N,N);c.fill();}
+  c.fillStyle='#9c6b45';c.beginPath();c.arc(MOUND[0]*k,(MOUND[1]+2)*k,40*k,0,7);c.fill();c.restore();
+  c.fillStyle='#2e7a44';path(BASE_XY.slice(0,4).map(b=>lerp(b,MOUND,.17)));c.fill();
+  c.fillStyle='#9c6b45';[[HP,7],[MOUND,4.5]].forEach(([p,r])=>{c.beginPath();c.arc(p[0]*k,p[1]*k,r*k,0,7);c.fill();});
+  c.strokeStyle='#fff';c.lineWidth=.8*k;c.beginPath();c.moveTo(...fair(150,-q).map(v=>v*k));c.lineTo(HP[0]*k,HP[1]*k);c.lineTo(...fair(150,q).map(v=>v*k));c.stroke();
+  c.globalAlpha=.5;c.lineWidth=.5*k;path(BASE_XY.slice(0,4));c.stroke();c.globalAlpha=1;
+  c.fillStyle='#fff';BASE_XY.slice(1,4).forEach(b=>{c.save();c.translate(b[0]*k,b[1]*k);c.rotate(Math.PI/4);c.fillRect(-2*k,-2*k,4*k,4*k);c.restore();});
+  c.fillRect((MOUND[0]-1.6)*k,(MOUND[1]-.4)*k,3.2*k,.8*k);
+  const t=new THREE.CanvasTexture(cv);t.anisotropy=4;return {tex:t,arc};
+}
+const s3Tex={};
+// 文字标签（名字、出局提示）：画成贴图，按内容缓存
+function s3Text(txt,color,big){
+  const key=txt+'|'+color+'|'+(big?1:0);if(s3Tex[key])return s3Tex[key];
+  const fs=big?96:44,cv=document.createElement('canvas'),c=cv.getContext('2d');c.font=`700 ${fs}px sans-serif`;
+  const w=Math.ceil(c.measureText(txt).width)+(big?24:20),h=fs+(big?20:16);cv.width=w;cv.height=h;
+  c.font=`700 ${fs}px sans-serif`;c.textBaseline='middle';c.textAlign='center';
+  if(!big){c.fillStyle='rgba(10,26,16,.72)';c.beginPath();c.roundRect?c.roundRect(0,0,w,h,h/2):c.rect(0,0,w,h);c.fill();}
+  else{c.lineWidth=12;c.strokeStyle='#0a1a10';c.strokeText(txt,w/2,h/2+2);}
+  c.fillStyle=color;c.fillText(txt,w/2,h/2+2);
+  const tex=new THREE.CanvasTexture(cv);return s3Tex[key]={tex,ratio:w/h};
+}
+function s3Label(sp,txt,color,size,big){
+  if(sp.userData.txt===txt+color){return;}sp.userData.txt=txt+color;
+  if(!txt){sp.visible=false;return;}const t=s3Text(txt,color,big);sp.material.map=t.tex;sp.material.needsUpdate=true;sp.scale.set(size*t.ratio,size,1);sp.visible=true;
+}
+function s3Person(){
+  const g=new THREE.Group(),body=new THREE.Mesh(new THREE.CylinderGeometry(1.3,1.6,4.6,14),new THREE.MeshLambertMaterial({color:'#fff'}));body.position.y=2.6;
+  const head=new THREE.Mesh(new THREE.SphereGeometry(1.15,14,10),new THREE.MeshLambertMaterial({color:'#e9c7a6'}));head.position.y=5.9;
+  const cap=new THREE.Mesh(new THREE.SphereGeometry(1.2,14,8,0,Math.PI*2,0,Math.PI/2),new THREE.MeshLambertMaterial({color:'#fff'}));cap.position.y=6.1;
+  const sh=new THREE.Mesh(new THREE.CircleGeometry(1.8,16),new THREE.MeshBasicMaterial({color:'#000',transparent:true,opacity:.3}));sh.rotation.x=-Math.PI/2;sh.position.y=.05;
+  const lab=new THREE.Sprite(new THREE.SpriteMaterial({transparent:true,depthTest:false,sizeAttenuation:false}));lab.position.y=8.5;lab.renderOrder=5;
+  g.add(body,head,cap,sh,lab);g.userData={body,cap,lab};return g;
+}
+function s3Setup(){
+  const r=new THREE.WebGLRenderer({antialias:true});r.setPixelRatio(Math.min(2,window.devicePixelRatio||1));
+  const scene=new THREE.Scene();scene.background=new THREE.Color('#0b1d13');scene.fog=new THREE.Fog('#0b1d13',260,420);
+  scene.add(new THREE.HemisphereLight('#e8f2ff','#24402c',.8));const sun=new THREE.DirectionalLight('#fff',.55);sun.position.set(-60,120,40);scene.add(sun);
+  const {tex,arc}=s3FieldTexture();
+  const ground=new THREE.Mesh(new THREE.PlaneGeometry(250,250),new THREE.MeshLambertMaterial({map:tex}));ground.rotation.x=-Math.PI/2;ground.position.set(125-HP[0],0,125-HP[1]);scene.add(ground);
+  const out=new THREE.Mesh(new THREE.PlaneGeometry(900,900),new THREE.MeshLambertMaterial({color:'#123222'}));out.rotation.x=-Math.PI/2;out.position.y=-.05;scene.add(out);
+  // 外野护栏：沿全垒打墙的弧线立一圈
+  const pos=[],idx=[];arc.forEach((p,i)=>{const v=W3(p);pos.push(v.x,0,v.z,v.x,7,v.z);if(i){const a=i*2;idx.push(a-2,a-1,a,a-1,a+1,a);}});
+  const wg=new THREE.BufferGeometry();wg.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));wg.setIndex(idx);wg.computeVertexNormals();
+  scene.add(new THREE.Mesh(wg,new THREE.MeshLambertMaterial({color:'#0e3a5c',side:THREE.DoubleSide})));
+  const top=new THREE.Line(new THREE.BufferGeometry().setFromPoints(arc.map(p=>W3(p,7.05))),new THREE.LineBasicMaterial({color:'#ffd166'}));scene.add(top);
+  const fd=Array.from({length:9},s3Person),rn=Array.from({length:5},s3Person);[...fd,...rn].forEach(m=>scene.add(m));
+  const ball=new THREE.Mesh(new THREE.SphereGeometry(.85,14,10),new THREE.MeshBasicMaterial({color:'#fff'}));
+  const bsh=new THREE.Mesh(new THREE.CircleGeometry(.9,12),new THREE.MeshBasicMaterial({color:'#000',transparent:true,opacity:.35}));bsh.rotation.x=-Math.PI/2;bsh.position.y=.06;
+  const ring=new THREE.Mesh(new THREE.RingGeometry(1.5,2,24),new THREE.MeshBasicMaterial({color:'#ffd166',side:THREE.DoubleSide,transparent:true,opacity:.9}));
+  const flash=new THREE.Sprite(new THREE.SpriteMaterial({transparent:true,depthTest:false,sizeAttenuation:false}));flash.renderOrder=9;
+  scene.add(ball,bsh,ring,flash);
+  const cam=new THREE.PerspectiveCamera(42,4/3,1,900);
+  Object.assign(S3,{r,scene,cam,fd,rn,ball,bsh,ring,flash,eye:new THREE.Vector3(0,44,62),look:new THREE.Vector3(0,0,-50)});
+}
+function s3Draw(FR){
+  const host=SIM.el&&SIM.el.querySelector('.sim-3d');if(!host)return;
+  if(S3.state==='idle')s3Load();
+  const msg=host.querySelector('.s3-msg');
+  if(S3.state!=='ready'){msg.textContent=S3.state==='err'?'这台设备打不开 3D 画面（需要 WebGL），请切回 2D':'正在加载 3D 球场…';msg.style.display='';return;}
+  msg.style.display='none';
+  const {r,cam}=S3;if(r.domElement.parentNode!==host)host.prepend(r.domElement);
+  const w=host.clientWidth||360,h=Math.round(w*.78);if(r.domElement.width!==Math.round(w*r.getPixelRatio())){r.setSize(w,h);cam.aspect=w/h;cam.updateProjectionMatrix();}
+  FR.f.forEach((f,i)=>{const m=S3.fd[i];if(!m)return;m.position.copy(W3(f.xy));m.userData.body.material.color.set(FR.dc);m.userData.cap.material.color.set(FR.dc);
+    s3Label(m.userData.lab,f.n?`${f.no} ${f.n}`:String(f.no),f.hot?'#ffd166':'#ffffff',.034);m.visible=true;});
+  S3.rn.forEach((m,i)=>{const d=FR.r[i];if(!d){m.visible=false;return;}m.visible=true;m.position.copy(W3(d.xy));
+    m.userData.body.material.color.set(d.out?'#d22d49':'#ffffff');m.userData.cap.material.color.set(FR.oc);
+    m.userData.body.material.transparent=true;m.userData.body.material.opacity=d.fade?.35:1;s3Label(m.userData.lab,d.n,'#ffd166',.036);});
+  const B=FR.ball;S3.ball.visible=S3.bsh.visible=!!B;S3.ring.visible=!!B&&FR.throwing;
+  if(B){const y=1.6+(FR.lift||0)*2.4;S3.ball.position.copy(W3(B,y));S3.bsh.position.copy(W3(B,.06));S3.ring.position.copy(S3.ball.position);S3.ring.lookAt(cam.position);}
+  if(FR.flash){S3.flash.position.copy(W3(FR.flash.xy,14));s3Label(S3.flash,FR.flash.t,'#ff5468',.1,true);}else S3.flash.visible=false;
+  // 镜头：本垒后上方的转播视角；球去外野时拉高、跟着球
+  const far=FR.wide&&B,eye=far?new THREE.Vector3((B[0]-HP[0])*.25,92,72):new THREE.Vector3(0,44,62),look=far?W3(B,0).multiplyScalar(.6).add(new THREE.Vector3(0,0,-30)):new THREE.Vector3(0,0,-50);
+  if(!SIM.camAuto){eye.set(0,95,58);look.set(0,0,-70);}
+  S3.eye.lerp(eye,.06);S3.look.lerp(look,.08);cam.position.copy(S3.eye);cam.lookAt(S3.look);
+  const bd=host.querySelector('.s3-badge');
+  if(FR.badge){bd.style.display='';bd.innerHTML=`<b>${esc(FR.badge[0])}</b>${FR.badge[1]?`<span style="color:${FR.badge[2]}">${esc(FR.badge[1])}</span>`:''}`;}else bd.style.display='none';
+  r.render(S3.scene,cam);
 }
 
 /* ---------- v2：图文战报的组件 ---------- */
