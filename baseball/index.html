@@ -856,11 +856,12 @@ async function loadFeed(pk){
 }
 // 直播：当前打席的每一球（球种、球速、落点、判定）、球数、垒上跑者、投打双方
 async function loadLive(pk){
-  const d=await api(`/v1.1/game/${pk}/feed/live?fields=liveData,plays,currentPlay,result,description,about,inning,halfInning,isComplete,count,balls,strikes,outs,matchup,batter,pitcher,id,fullName,batSide,pitchHand,code,playEvents,isPitch,pitchNumber,pitchData,coordinates,pX,pZ,startSpeed,strikeZoneTop,strikeZoneBottom,details,call,type,isStrike,isBall,isInPlay,linescore,offense,first,second,third,currentInning,isTopInning`,10000);
+  const d=await api(`/v1.1/game/${pk}/feed/live?fields=liveData,plays,currentPlay,result,description,about,inning,halfInning,isComplete,atBatIndex,count,balls,strikes,outs,matchup,batter,pitcher,id,fullName,batSide,pitchHand,code,playEvents,isPitch,pitchNumber,pitchData,coordinates,pX,pZ,startSpeed,strikeZoneTop,strikeZoneBottom,details,call,type,isStrike,isBall,isInPlay,linescore,offense,first,second,third,currentInning,isTopInning`,10000);
   const ld=d.liveData||{},cp=(ld.plays&&ld.plays.currentPlay)||{},m=cp.matchup||{},ls=ld.linescore||{},o=ls.offense||{};
   Live.now[pk]={inn:ls.currentInning||(cp.about&&cp.about.inning),top:ls.isTopInning!==false,count:cp.count||{},bases:[!!o.first,!!o.second,!!o.third],
     bat:m.batter&&{id:m.batter.id,n:m.batter.fullName,side:m.batSide&&m.batSide.code},pit:m.pitcher&&{id:m.pitcher.id,n:m.pitcher.fullName,hand:m.pitchHand&&m.pitchHand.code},
-    done:cp.about&&cp.about.isComplete,result:cp.result&&cp.result.description,
+    done:cp.about&&cp.about.isComplete,result:cp.result&&cp.result.description,ab:cp.atBatIndex,outs:(cp.count||{}).outs||0,
+    on:[null,o.first,o.second,o.third].map(x=>x&&x.id?{id:x.id,n:x.fullName}:null),
     pitches:(cp.playEvents||[]).filter(e=>e.isPitch&&e.details).map(e=>{const pd=e.pitchData||{},c=pd.coordinates||{},dt=e.details;
       return {n:e.pitchNumber,code:dt.type&&dt.type.code,name:dt.type&&dt.type.description,call:dt.call&&dt.call.description,mph:pd.startSpeed,x:c.pX,z:c.pZ,
         top:pd.strikeZoneTop,bot:pd.strikeZoneBottom,k:dt.isInPlay?'play':dt.isStrike?'strike':'ball',cnt:e.count};})};
@@ -903,8 +904,19 @@ async function boot(){
 // 正在看的直播：每 15 秒更新当前打席、技术统计和文字直播
 setInterval(()=>{
   if(document.hidden||!S.sheet||S.sheet.kind!=='game')return;const g=G(S.sheet.id);if(!g||!g.real||g.status!=='live')return;
-  Promise.all([loadLive(g.pk).catch(()=>{}),loadBox(g.pk).catch(()=>{}),loadFeed(g.pk).catch(()=>{}),S.sheet.tab==='sim'||SIM.pk===g.pk?loadPlays(g.pk).catch(()=>{}):0]).then(()=>{if(S.sheet&&S.sheet.id===g.id)refreshSheet();});
+  Promise.all([loadLive(g.pk).catch(()=>{}),loadBox(g.pk).catch(()=>{}),loadFeed(g.pk).catch(()=>{}),S.sheet.tab!=='sim'&&SIM.pk===g.pk?loadPlays(g.pk).catch(()=>{}):0]).then(()=>{if(S.sheet&&S.sheet.id===g.id)refreshSheet();});
 },15000);
+// 看比赛画面时：每 5 秒读一次当前打席（数据很小），一球一球地演；打席结束、换人时马上读完整的逐球数据
+const FAST={busy:false,key:'',at:0};
+setInterval(()=>{
+  if(FAST.busy||document.hidden||!S.sheet||S.sheet.kind!=='game'||S.sheet.tab!=='sim')return;
+  const g=G(S.sheet.id);if(!g||!g.real||g.status!=='live')return;
+  FAST.busy=true;
+  loadLive(g.pk).then(()=>{const N=Live.now[g.pk]||{},key=`${g.pk}:${N.ab}:${N.done?1:0}`;
+    if(key===FAST.key&&Date.now()-FAST.at<60e3)return;
+    return loadPlays(g.pk).then(()=>{FAST.key=key;FAST.at=Date.now();});
+  }).catch(()=>{}).then(()=>{FAST.busy=false;});
+},5000);
 const SRC_TEXT={loading:'连接中',ok:'MLB 实时',off:'示例数据'};
 const srcChip=()=>`<button class="src ${Live.state}" data-act="src">${SRC_TEXT[Live.state]}</button>`;
 
@@ -1507,7 +1519,7 @@ async function loadPlays(pk){
       if(rd.isScoringEvent)o.score=true;});
     // 三振出局的打者是在本垒出局的（官方数据也会记成“一垒出局”），不要让他跑
     if(/strikeout/.test(p.result.eventType||''))Object.values(rs).forEach(o=>{if(o.s===0&&o.out)o.e=0;});
-    return {inn:p.about.inning,top:p.about.halfInning==='top',desc:p.result.description,et:p.result.eventType||'',as:p.result.awayScore,hs:p.result.homeScore,outs:(p.count||{}).outs||0,
+    return {ab:p.atBatIndex,inn:p.about.inning,top:p.about.halfInning==='top',desc:p.result.description,et:p.result.eventType||'',as:p.result.awayScore,hs:p.result.homeScore,outs:(p.count||{}).outs||0,
       bat:p.matchup&&p.matchup.batter,pit:p.matchup&&p.matchup.pitcher,
       pitches:pe.map(e=>({code:e.details.type&&e.details.type.code,mph:e.pitchData&&e.pitchData.startSpeed,call:e.details.call&&e.details.call.description,k:e.details.isInPlay?'play':e.details.isStrike?'strike':'ball'})),
       hit:c&&c.coordX!=null?{x:c.coordX,y:c.coordY,t:hd.trajectory||''}:null,run:Object.values(rs),
@@ -1530,7 +1542,20 @@ function simPrepare(){
     p.run.forEach(r=>{names[r.id]=r.n;for(let b=1;b<4;b++)if(bases[b]===r.id)bases[b]=0;});
     p.run.forEach(r=>{if(!r.out&&r.e>=1&&r.e<=3)bases[r.e]=r.id;});
     outs=p.outs;return pre;});
-  SIM.post={bases,outs};SIM.names=names;
+  SIM.post={bases,outs};SIM.names=names;SIM.defEnd=def;
+}
+// 进行中的打席：官方数据要等打席结束才算“完成”，这里先用当前打席（每 5 秒更新）一球一球地演
+function simCur(){
+  const N=SIM.live&&Live.now[SIM.pk],plays=Live.plays[SIM.pk]||[],last=plays[plays.length-1];
+  if(!N||N.done||N.ab==null||!N.bat||!N.pit||(last&&N.ab<=last.ab))return null;
+  const sd=N.top?'h':'a',bases=[0,0,0,0];
+  (N.on||[]).forEach((x,b)=>{if(x){bases[b]=x.id;SIM.names[x.id]=x.n;}});
+  const ps=N.pitches.map(x=>({code:x.code,mph:x.mph,call:x.call,k:x.k}));
+  const key=`${N.ab}:${ps.length}:${N.top}:${N.outs}:${bases.join(',')}`;
+  if(SIM.curP&&SIM.curP._key===key)return SIM.curP;
+  return SIM.curP={_key:key,partial:true,ab:N.ab,inn:N.inn,top:N.top,desc:'',et:'',as:last?last.as:0,hs:last?last.hs:0,outs:N.outs,
+    bat:{id:N.bat.id,fullName:N.bat.n},pit:{id:N.pit.id,fullName:N.pit.n},pitches:ps,hit:null,run:[],subs:[],
+    pre:{bases,outs:N.outs,def:Object.assign({},(SIM.defEnd||{})[sd]||{})}};
 }
 const POSN_CN={P:'投手',C:'捕手','1B':'一垒手','2B':'二垒手',SS:'游击手','3B':'三垒手',LF:'左外野手',CF:'中外野手',RF:'右外野手'};
 const BASE_CN=['本垒','一垒','二垒','三垒','本垒'];
@@ -1555,6 +1580,7 @@ function simChain(p){
 }
 const coverPt=b=>lerp(BASE_XY[b],MOUND,.1);
 function simTimes(p){
+  if(p.partial){const n=p.pitches.length;return {n,P:n*PT,H:0,rs:n*PT,R:0,segs:[],ch:null,end:Infinity};}
   if(p._t)return p._t;
   const n=Math.min(p.pitches.length,8),P=n*PT,H=p.hit?1300:0,moves=p.run.some(r=>r.e!==r.s||r.out),ch=simChain(p),segs=[];
   if(ch){let at=[p.hit.x,p.hit.y],t0=P+H+300;const n0=ch.nodes[0];
@@ -1602,7 +1628,7 @@ function simBuild(g){
     <div class="sim-ctl"><button data-sim="prev">‹ 上一棒</button><button data-sim="toggle" class="sim-play">暂停</button><button data-sim="next">下一棒 ›</button>
       <button data-sim="speed" class="sim-spd">1×</button><button data-sim="cam" class="sim-cam">镜头：跟随</button><button data-sim="mode" class="sim-mode">3D</button></div><div class="sim-pos"></div>
     <div class="sim-inns"></div><div class="sim-log"></div>
-    <div class="note">根据 MLB 官方逐球数据重建的示意动画：球的落点、跑者路线和判定是真实的，球员的跑位是示意。${g.status==='live'?'每 15 秒同步一次新的打席。':''}</div>`;
+    <div class="note">根据 MLB 官方逐球数据重建的示意动画：球的落点、跑者路线和判定是真实的，球员的跑位是示意。${g.status==='live'?'直播时每 5 秒同步一次，正在进行的打席一球一球地演。':''}</div>`;
   const $$=c=>el.querySelector(c);
   Object.assign(SIM,{el,pk:g.pk,g,idx:0,t:0,log:[],speed:1,playing:true,live:g.status==='live',view:CAM_NEAR.slice(),camAuto:store.get('simcam',true),mode:store.get('simmode','2d'),
     q:{svg:$$('.sim-f'),cam:$$('.sim-cam'),mode:$$('.sim-mode'),h3:$$('.sim-3d'),sc:$$('.sim-sc'),inn:$$('.sim-inn'),outs:$$('.sim-outs'),cnt:$$('.sim-cnt'),dg:$$('.sim-dg'),rg:$$('.sim-rg'),ball:$$('.sim-ball'),sh:$$('.sim-sh'),ring:$$('.sim-ring'),pb:$$('.sim-pb'),trail:$$('.sim-trail'),flash:$$('.sim-flash'),k:$$('.sim-k'),tx:$$('.sim-tx'),
@@ -1634,8 +1660,14 @@ function simLoop(){
   SIM.raf=requestAnimationFrame(step);
 }
 function simAdvance(dt){
-  const plays=Live.plays[SIM.pk];if(!plays||SIM.idx>=plays.length)return;
-  SIM.t+=dt;const p=plays[SIM.idx];
+  const plays=Live.plays[SIM.pk];if(!plays)return;
+  if(SIM.idx>=plays.length){const c=simCur();if(!c)return;
+    // 停在最新一球上；落后太多（刚打开时）就跳到最近两球
+    const P=c.pitches.length*PT;if(P-SIM.t>4*PT)SIM.t=P-2*PT;SIM.t=Math.min(SIM.t+dt,Math.max(0,P-1));SIM.curAb=c.ab;return;}
+  const p=plays[SIM.idx];
+  // 刚才演的进行中打席结束了：接着演最后一球和击球，不重头再投一遍
+  if(SIM.curAb!=null){if(p.ab===SIM.curAb){const T=simTimes(p);SIM.t=Math.max(0,SIM.t-(p.pitches.length-T.n)*PT);}else SIM.t=0;SIM.curAb=null;}
+  SIM.t+=dt;
   if(SIM.t>=simTimes(p).end){simPush(p);SIM.idx++;SIM.t=0;}
 }
 function simPush(p){SIM.log.unshift(p);if(SIM.log.length>40)SIM.log.pop();simLogDraw();}
@@ -1659,16 +1691,18 @@ function simDraw(){
   q.play.textContent=SIM.playing?'暂停':'播放';q.spd.textContent=SIM.speed+'×';
   const m3=SIM.mode==='3d';q.svg.style.display=m3?'none':'';q.h3.style.display=m3?'':'none';q.mode.textContent=m3?'2D':'3D';
   if(!plays)return;
-  const done=SIM.idx>=plays.length,p=done?plays[plays.length-1]:plays[SIM.idx],t=SIM.t;
+  const cur=SIM.idx>=plays.length?simCur():null;
+  const done=SIM.idx>=plays.length&&!cur,p=cur||(done?plays[plays.length-1]:plays[SIM.idx]),t=SIM.t;
   if(!p){q.tx.textContent='这场比赛还没有完成的打席';return;}
-  const T=simTimes(p),pre=done?SIM.post:SIM.pre[SIM.idx],after=done||t>=T.end-1800;
+  const T=simTimes(p),pre=cur?cur.pre:done?SIM.post:SIM.pre[SIM.idx],after=done||t>=T.end-1800;
   const prev=done?p:plays[SIM.idx-1],sa=after?p.as:prev?prev.as:0,sh=after?p.hs:prev?prev.hs:0;
   q.sc.textContent=`${sa} - ${sh}`;q.inn.textContent=`${p.inn}局${p.top?'上':'下'}`;
   const outs=after?p.outs:pre.outs;q.outs.innerHTML=[0,1,2].map(i=>`<i class="${i<outs?'on':''}"></i>`).join('');
-  q.pos.textContent=done?(SIM.live?'等待下一个打席…':'全场结束'):`第 ${SIM.idx+1} / ${plays.length} 个打席`;
+  q.pos.textContent=cur?'● 直播中':done?(SIM.live?'等待下一个打席…':'全场结束'):`第 ${SIM.idx+1} / ${plays.length} 个打席`;
   // 球数：逐球累加
   const shown=p.pitches.slice(-T.n),j=done?T.n:Math.min(T.n-1,Math.floor(t/PT));let b=0,s=0;
-  p.pitches.slice(0,p.pitches.length-T.n).concat(shown.slice(0,Math.max(0,j))).forEach(x=>{if(x.k==='ball')b++;else if(x.k==='strike'&&(s<2||!/Foul/.test(x.call||'')))s++;});
+  const jc=Math.max(0,j+(!done&&t<T.P&&t%PT>=REL+FLY?1:0));
+  p.pitches.slice(0,p.pitches.length-T.n).concat(shown.slice(0,jc)).forEach(x=>{if(x.k==='ball')b++;else if(x.k==='strike'&&(s<2||!/Foul/.test(x.call||'')))s++;});
   q.cnt.textContent=after||done?'':`${Math.min(b,3)}-${Math.min(s,2)}`;
   // 守备：防守方是 top 时的主队
   const def=p.top?g.h:g.a,off=p.top?g.a:g.h,DC=team(def.t).c,OC=team(off.t).c,B=Live.box[SIM.pk],lineup=B?(p.top?B.h:B.a):null;
@@ -1743,7 +1777,8 @@ function simDraw(){
   const head=`${p.inn}局${p.top?'上':'下'} · ${esc(team(off.t).n)}进攻 · ${esc(shortName(p.pit&&p.pit.fullName))} 对 ${esc(shortName(p.bat&&p.bat.fullName))}`;
   if(done){q.k.innerHTML=head;q.tx.textContent=SIM.live?'等待下一个打席…':'比赛结束，可以点上方局数重新回放';return;}
   q.k.innerHTML=head;
-  if(t<T.P&&shown[j]){const x=shown[j];q.tx.textContent=`第 ${p.pitches.length-T.n+j+1} 球 · ${PITCH_CN[x.code]||'投球'}${x.mph?` ${Math.round(x.mph)} 英里/时（${mph2kmh(x.mph)} 公里）`:''} · ${CALL_CN[x.call]||x.call||''}`;}
+  if(cur&&!shown.length)q.tx.textContent=`${shortName(p.bat.fullName)} 走上打击区……`;
+  else if(t<T.P&&shown[j]){const x=shown[j];q.tx.textContent=`第 ${p.pitches.length-T.n+j+1} 球 · ${PITCH_CN[x.code]||'投球'}${x.mph?` ${Math.round(x.mph)} 英里/时（${mph2kmh(x.mph)} 公里）`:''} · ${CALL_CN[x.call]||x.call||''}`;}
   else if(land&&t<T.P+T.H*.8)q.tx.textContent=/fly|popup/.test(p.hit.t)?'高高飞起……':p.hit.t==='line_drive'?'平飞球！':'滚地球……';
   else if(ch&&t<(segs.length?segs[segs.length-1].t1+1300:T.P+T.H+1300)){
     const n0=ch.nodes[0];let tx=`${POSN_CN[n0.pos]||'野手'}${n0.caught?'接杀！':'接到球'}`;
